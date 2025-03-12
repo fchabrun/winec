@@ -9,15 +9,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--mode")
 parser.add_argument("--host")
 parser.add_argument("--port")
-# parser.add_argument("--rundir", default="~/Documents/winec_res")
-parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Documents\winec\rundir")
-parser.add_argument("--db", default="winec_db_v1.db")
+parser.add_argument("--rundir", default="~/winec_res")
+# parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Documents\winec\rundir")
 args = parser.parse_args()
 
 
 # get temp/tec status measurements over the last X minutes, formatted as a pandas dataframe
 def db_get_measurements(minutes):
-    connection = sqlite3.connect(args.db)
+    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
     cursor = connection.cursor()
     colnames = ["time", "left_temperature", "right_temperature", "left_tec_status", "right_tec_status"]
     cursor.execute(f"SELECT {', '.join(colnames)} FROM temperature_measurements WHERE time > DATETIME('now', '-{minutes} minute')")  # execute a simple SQL select query

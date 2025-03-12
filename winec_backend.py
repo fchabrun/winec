@@ -15,9 +15,8 @@ parser.add_argument("--port")
 # parser.add_argument("--clean_params")
 parser.add_argument("--clean_db", default=True)
 parser.add_argument("--clean_params", default=True)
-parser.add_argument("--rundir", default="~/Documents/winec_rundir")
+parser.add_argument("--rundir", default="~/winec_rundir")
 # parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Documents\winec\rundir")
-parser.add_argument("--db", default="winec_db_v1.db")
 args = parser.parse_args()
 
 # logs
@@ -36,7 +35,7 @@ from bmp180 import bmp180
 # sqlite3 db
 def init_db():
     log("intializing db")
-    connection = sqlite3.connect(args.db)
+    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
     cursor = connection.cursor()
     cursor.execute("CREATE TABLE IF NOT EXISTS temperature_measurements (time DATETIME, left_temperature FLOAT, right_temperature FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN)")
     connection.commit()
@@ -45,7 +44,7 @@ def init_db():
     
 def clear_db():
     log("cleaning db")
-    connection = sqlite3.connect(args.db)
+    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
     cursor = connection.cursor()
     cursor.execute("DROP TABLE IF EXISTS temperature_measurements")
     connection.commit()
@@ -53,7 +52,7 @@ def clear_db():
     
 def db_store_measurements(left_temp, right_temp, left_tec_status, right_tec_status):
     log("storing measurements into db")
-    connection = sqlite3.connect(args.db)
+    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
     cursor = connection.cursor()
     cursor.execute(f"INSERT INTO temperature_measurements VALUES (DateTime('now'), {left_temp:.2f}, {right_temp:.2f}, {left_tec_status:b}, {right_tec_status:b})")
     connection.commit()
