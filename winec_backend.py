@@ -25,7 +25,7 @@ def log(s):
     with open(os.path.join(args.rundir, "winec.log"), "a") as f:
         f.write(f"{datetime.now()}    {s}" + "\n")
         
-os.makedir(args.rundir, exist_ok=True)
+os.makedirs(args.rundir, exist_ok=True)
     
 root_dir = os.path.split(sys.argv[0])[0]
 log(f"appending {root_dir} to sys path")
