@@ -224,13 +224,13 @@ class bmp180:
 if __name__ == "__main__":
     left_bmp = bmp180(1, 0x77)
     print("Left sensor:")
-    print(bmp.get_temp())
-    print(bmp.get_pressure())
-    print(bmp.get_altitude())
+    print(left_bmp.get_temp())
+    print(left_bmp.get_pressure())
+    print(left_bmp.get_altitude())
     
     right_bmp = bmp180(2, 0x77)
     print("Right sensor:")
-    print(bmp.get_temp())
-    print(bmp.get_pressure())
-    print(bmp.get_altitude())
+    print(right_bmp.get_temp())
+    print(right_bmp.get_pressure())
+    print(right_bmp.get_altitude())
 
