@@ -9,6 +9,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--mode")
 parser.add_argument("--host")
 parser.add_argument("--port")
+parser.add_argument("--dash_ip", default="192.168.1.13")
 parser.add_argument("--rundir", default="/home/cav/winec_res")
 # parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Documents\winec\rundir")
 args = parser.parse_args()
@@ -112,4 +113,4 @@ if __name__ == '__main__':
     # TODO propose inputs
 
     # TODO display some stats e.g. % time the TEC was on
-    app.run()
+    app.run(host=args.dash_ip)
