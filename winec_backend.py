@@ -19,12 +19,15 @@ parser.add_argument("--rundir", default="~/winec_rundir")
 # parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Documents\winec\rundir")
 args = parser.parse_args()
 
+print(f"running at {args.rundir}")
+
 # logs
 def log(s):
     with open(os.path.join(args.rundir, "winec.log"), "a") as f:
         f.write(f"{datetime.now()}    {s}" + "\n")
         
 os.makedirs(args.rundir, exist_ok=True)
+log(f"running at {args.rundir}")
     
 root_dir = os.path.split(sys.argv[0])[0]
 log(f"appending {root_dir} to sys path")
