@@ -228,7 +228,7 @@ if __name__ == "__main__":
     print(left_bmp.get_pressure())
     print(left_bmp.get_altitude())
     
-    right_bmp = bmp180(2, 0x77)
+    right_bmp = bmp180(4, 0x77)
     print("Right sensor:")
     print(right_bmp.get_temp())
     print(right_bmp.get_pressure())
