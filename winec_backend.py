@@ -15,8 +15,8 @@ parser.add_argument("--port")
 # parser.add_argument("--clean_params")
 parser.add_argument("--clean_db", default=True)
 parser.add_argument("--clean_params", default=True)
-# parser.add_argument("--rundir", default="~/Documents/winec_res")
-parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Documents\winec\rundir")
+parser.add_argument("--rundir", default="~/Documents/winec_rundir")
+# parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Documents\winec\rundir")
 parser.add_argument("--db", default="winec_db_v1.db")
 args = parser.parse_args()
 
@@ -24,16 +24,14 @@ args = parser.parse_args()
 def log(s):
     with open(os.path.join(args.rundir, "winec.log"), "a") as f:
         f.write(f"{datetime.now()}    {s}" + "\n")
+        
+os.makedir(args.rundir, exist_ok=True)
     
 root_dir = os.path.split(sys.argv[0])[0]
 log(f"appending {root_dir} to sys path")
 sys.path.append(root_dir)
 log(f"importing bmp180 library")
 from bmp180 import bmp180
-# try:
-#     from bmp180 import bmp180
-# except:
-#     log("Could not load bmp180 library")
 
 # sqlite3 db
 def init_db():
@@ -73,7 +71,7 @@ def default_params():
             "tec_cooldown_minutes": 5.0,  # the tec won't be activated again before waiting for the end of the cooldown delay
         },
         "right": {
-            "bmp180_bus": 1,  # bmp180 i2c bus
+            "bmp180_bus": 4,  # bmp180 i2c bus
             "bmp180_address": 0x77,  # bmp180 i2c address
             "target_temperature": 12.0,  # target temperature
             "temperature_deviation": 2.0,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
