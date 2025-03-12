@@ -9,7 +9,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--mode")
 parser.add_argument("--host")
 parser.add_argument("--port")
-parser.add_argument("--rundir", default="~/winec_res")
+parser.add_argument("--rundir", default="/home/cav/winec_res")
 # parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Documents\winec\rundir")
 args = parser.parse_args()
 

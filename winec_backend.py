@@ -15,7 +15,7 @@ parser.add_argument("--port")
 # parser.add_argument("--clean_params")
 parser.add_argument("--clean_db", default=True)
 parser.add_argument("--clean_params", default=True)
-parser.add_argument("--rundir", default="~/winec_rundir")
+parser.add_argument("--rundir", default="/home/cav/winec_rundir")
 # parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Documents\winec\rundir")
 args = parser.parse_args()
 
