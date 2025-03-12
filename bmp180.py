@@ -219,3 +219,18 @@ class bmp180:
         altitude = 44330.0 * (1.0 - math.pow(pressure / sea_level_pressure, 0.00019029495))
 
         return altitude
+
+
+if __name__ == "__main__":
+    left_bmp = bmp180(1, 0x77)
+    print("Left sensor:")
+    print(bmp.get_temp())
+    print(bmp.get_pressure())
+    print(bmp.get_altitude())
+    
+    right_bmp = bmp180(2, 0x77)
+    print("Right sensor:")
+    print(bmp.get_temp())
+    print(bmp.get_pressure())
+    print(bmp.get_altitude())
+
