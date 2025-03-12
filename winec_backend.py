@@ -5,15 +5,16 @@ import time
 import argparse
 import sys
 from datetime import datetime
+# import numpy as np  # TODO remove
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode")
 parser.add_argument("--host")
 parser.add_argument("--port")
-parser.add_argument("--clean_db")
-parser.add_argument("--clean_params")
-# parser.add_argument("--clean_db", default=True)
-# parser.add_argument("--clean_params", default=True)
+# parser.add_argument("--clean_db")
+# parser.add_argument("--clean_params")
+parser.add_argument("--clean_db", default=True)
+parser.add_argument("--clean_params", default=True)
 # parser.add_argument("--rundir", default="~/Documents/winec_res")
 parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Documents\winec\rundir")
 parser.add_argument("--db", default="winec_db_v1.db")
@@ -22,17 +23,17 @@ args = parser.parse_args()
 # logs
 def log(s):
     with open(os.path.join(args.rundir, "winec.log"), "a") as f:
-        f.write(f"{datetime.now()}: {s}" + "\n")
+        f.write(f"{datetime.now()}    {s}" + "\n")
     
 root_dir = os.path.split(sys.argv[0])[0]
 log(f"appending {root_dir} to sys path")
 sys.path.append(root_dir)
 log(f"importing bmp180 library")
-# TODO remove that
-try:
-    import bmp180
-except:
-    log("Could not load bmp180 library")
+from bmp180 import bmp180
+# try:
+#     from bmp180 import bmp180
+# except:
+#     log("Could not load bmp180 library")
 
 # sqlite3 db
 def init_db():
@@ -93,24 +94,26 @@ def get_params():
     json_path = os.path.join(args.rundir, "settings.json")
     try:
         with open(json_path, "r") as f:
-            jsdata = json.load(f)
-            params = argparse.Namespace(**jsdata)
+            params = json.load(f)
         log(f"loaded params from json at path {json_path}")
     except:
         log(f"no params found at path {json_path}, loading defaults")
-        params = argparse.Namespace(**default_params())
+        params = default_params()
         try:
             with open(json_path, "w") as f:
-                json.dump(vars(params), f, indent=4)
+                json.dump(params, f, indent=4)
             log(f"saved params to json at path {json_path}")
         except:
             log(f"could not save params to json at path {json_path}")
     return params
 
+
 # measures, etc.
 def get_current_temperatures():
-    # TODO
-    return 0, 0
+    left_temp = left_bmp.get_temp()
+    right_temp = right_bmp.get_temp()
+    return left_temp, right_temp
+    # return np.random.normal(loc=12, scale=1, size=None), np.random.normal(loc=12, scale=1, size=None)
 
 if __name__ == "__main__":
     if args.clean_db is not None:
@@ -124,12 +127,22 @@ if __name__ == "__main__":
     left_tec_status = 0
     right_tec_status = 0
 
+    # init sensors
+    left_bmp, right_bmp = None, None
+
     while True:
+        log("loop iteration")
+
         # load params at every cycle in case something changed
         params = get_params()
-        
+        if (left_bmp is None) or (left_bmp.bus != params["left"]["bus"]) or (left_bmp.address != params["left"]["address"]):
+            log(f"initializing left bmp with bus={params['left']['bus']} and address={params['left']['address']}")
+            left_bmp = bmp180(params["left"]["bmp180_bus"], params["left"]["bmp180_address"])
+        if (right_bmp is None) or (right_bmp.bus != params["right"]["bus"]) or (right_bmp.address != params["right"]["address"]):
+            log(f"initializing left right with bus={params['right']['bus']} and address={params['right']['address']}")
+            right_bmp = bmp180(params["right"]["bmp180_bus"], params["right"]["bmp180_address"])
+
         # get temperature measurements
-        # TODO
         log("getting sensor measurements")
         left_temp, right_temp = get_current_temperatures()
         
@@ -139,15 +152,20 @@ if __name__ == "__main__":
         
         # decide if tec has to go on or off
         log("measurement-based decision")
-        # TODO
-        # if (left_temp < (left_temp_target - left_temp_dev)):
-        #     # turn off and store
-        #     pass
-        # elif (left_temp > (left_temp_target + left_temp_dev)):
-        #     # turn on and store
-        #     pass
+        if (left_tec_status == 1) & (left_temp < (params["left"]["target_temperature"] - params["left"]["temperature_deviation"])):
+            # turn off and store
+            # TODO actually turn on
+            # TODO handle cooldown
+            left_tec_status = 0
+        elif (left_tec_status == 0) & (left_temp > (params["left"]["target_temperature"] + params["left"]["temperature_deviation"])):
+            # turn on and store
+            # TODO actually turn off
+            # TODO handle cooldown
+            left_tec_status = 1
         # TODO also for right
+
+        # TODO security: if aberrant temp, just set everything off and exit
         
         # wait until next cycle
-        log(f"going to sleep for {params.loop_delay_seconds} seconds")
-        time.sleep(params.loop_delay_seconds)
+        log(f"going to sleep for {params['loop_delay_seconds']} seconds")
+        time.sleep(params["loop_delay_seconds"])

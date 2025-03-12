@@ -10,11 +10,12 @@ import smbus
 import math
 from time import sleep
 
+
 class bmp180:
     # Global variables
     address = None
     bus = None
-    mode = 1 # TODO: Add a way to change the mode
+    mode = 1  # TODO: Add a way to change the mode
 
     # BMP180 registers
     CONTROL_REG = 0xF4
@@ -218,9 +219,3 @@ class bmp180:
         altitude = 44330.0 * (1.0 - math.pow(pressure / sea_level_pressure, 0.00019029495))
 
         return altitude
-
-if __name__ == "__main__":
-    bmp = bmp180(0x77)
-    print(bmp.get_temp())
-    print(bmp.get_pressure())
-    print(bmp.get_altitude())
