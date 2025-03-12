@@ -133,11 +133,11 @@ if __name__ == "__main__":
 
         # load params at every cycle in case something changed
         params = get_params()
-        if (left_bmp is None) or (left_bmp.bus != params["left"]["bus"]) or (left_bmp.address != params["left"]["address"]):
-            log(f"initializing left bmp with bus={params['left']['bus']} and address={params['left']['address']}")
+        if (left_bmp is None) or (left_bmp.bus != params["left"]["bmp180_bus"]) or (left_bmp.address != params["left"]["bmp180_address"]):
+            log(f"initializing left bmp with bus={params['left']['bmp180_bus']} and address={params['left']['bmp180_address']}")
             left_bmp = bmp180(params["left"]["bmp180_bus"], params["left"]["bmp180_address"])
-        if (right_bmp is None) or (right_bmp.bus != params["right"]["bus"]) or (right_bmp.address != params["right"]["address"]):
-            log(f"initializing left right with bus={params['right']['bus']} and address={params['right']['address']}")
+        if (right_bmp is None) or (right_bmp.bus != params["right"]["bmp180_bus"]) or (right_bmp.address != params["right"]["bmp180_address"]):
+            log(f"initializing left right with bus={params['right']['bmp180_bus']} and address={params['right']['bmp180_address']}")
             right_bmp = bmp180(params["right"]["bmp180_bus"], params["right"]["bmp180_address"])
 
         # get temperature measurements
