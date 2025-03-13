@@ -121,8 +121,8 @@ def get_current_temperatures():
 def init_tec(pin):
     GPIO.setmode(GPIO.BOARD)
     GPIO.setup(pin, GPIO.OUT)
-    GPIO.output(LedPin, GPIO.LOW)
-    
+    GPIO.output(pin, GPIO.LOW)
+
 
 if __name__ == "__main__":
     if args.clean_db is not None:
