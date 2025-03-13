@@ -119,6 +119,7 @@ def get_current_temperatures():
     
     
 def init_tec(pin):
+    log("initializing tec at gpio {pin=}")
     GPIO.setmode(GPIO.BOARD)
     GPIO.setup(pin, GPIO.OUT)
     GPIO.output(pin, GPIO.LOW)
