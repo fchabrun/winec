@@ -41,7 +41,7 @@ def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status):
         secondary_y=False,
     )
     fig.add_trace(
-        go.Scatter(x=time, y=target, name="Target", line=dict(color='red')),
+        go.Scatter(x=time, y=target, name="Target", line=dict(color='green')),
         secondary_y=False,
     )
     fig.add_trace(
