@@ -46,7 +46,7 @@ def init_db():
     log("intializing db")
     connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
     cursor = connection.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS temperature_measurements (time DATETIME, left_temperature FLOAT, right_temperature FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS temperature_measurements (time DATETIME, left_temperature FLOAT, left_target FLOAT, left_limithi FLOAT, left_limitlo FLOAT, right_temperature FLOAT, right_target FLOAT, right_limithi FLOAT, right_limitlo FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN)")
     connection.commit()
     connection.close()
     log("initialized db")
@@ -59,11 +59,11 @@ def clear_db():
     connection.commit()
     connection.close()
     
-def db_store_measurements(left_temp, right_temp, left_tec_status, right_tec_status):
+def db_store_measurements(left_temp, left_target, left_limithi, left_limitlo, right_temp, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status):
     log("storing measurements into db")
     connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
     cursor = connection.cursor()
-    cursor.execute(f"INSERT INTO temperature_measurements VALUES (DateTime('now'), {left_temp:.2f}, {right_temp:.2f}, {left_tec_status:b}, {right_tec_status:b})")
+    cursor.execute(f"INSERT INTO temperature_measurements VALUES (DateTime('now'), {left_temp:.2f}, {left_target:.2f}, {left_limithi:.2f}, {left_limitlo:.2f}, {right_temp:.2f}, {right_target:.2f}, {right_limithi:.2f}, {right_limitlo:.2f}, {left_tec_status:b}, {right_tec_status:b})")
     connection.commit()
     connection.close()
 
@@ -153,7 +153,9 @@ if __name__ == "__main__":
         left_temp, right_temp = get_current_temperatures()
         
         # store new temperature measurements
-        db_store_measurements(left_temp, right_temp, left_tec_status, right_tec_status)
+        db_store_measurements(left_temp, params["left"]["target_temperature"], params["left"]["target_temperature"] + params["left"]["temperature_deviation"], params["left"]["target_temperature"] - params["left"]["temperature_deviation"],
+                              right_temp, params["right"]["target_temperature"], params["right"]["target_temperature"] + params["right"]["temperature_deviation"], params["right"]["target_temperature"] - params["right"]["temperature_deviation"],
+                              left_tec_status, right_tec_status)
         
         # decide if tec has to go on or off
         log("measurement-based decision")

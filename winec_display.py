@@ -20,7 +20,7 @@ args = parser.parse_args()
 def db_get_measurements(minutes):
     connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
     cursor = connection.cursor()
-    colnames = ["time", "left_temperature", "right_temperature", "left_tec_status", "right_tec_status"]
+    colnames = ["time", "left_temperature", "left_target", "left_limithi", "left_limitlo", "right_temperature", "right_target", "right_limithi", "right_limitlo", "left_tec_status", "right_tec_status"]
     cursor.execute(f"SELECT {', '.join(colnames)} FROM temperature_measurements WHERE time > DATETIME('now', '-{minutes} minute')")  # execute a simple SQL select query
     query_results = cursor.fetchall()
     connection.commit()
@@ -32,20 +32,32 @@ def db_get_measurements(minutes):
 app = Dash()
 
 
-def draw_main_grap(time, temperature, tec_status):
+def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
     # Add traces
     fig.add_trace(
-        go.Scatter(x=time, y=temperature, name="Temperature"),
+        go.Scatter(x=time, y=temperature, name="Measured", line=dict(color='blue')),
+        secondary_y=False,
+    )
+    fig.add_trace(
+        go.Scatter(x=time, y=target, name="Target", line=dict(color='red')),
+        secondary_y=False,
+    )
+    fig.add_trace(
+        go.Scatter(x=time, y=limithi, name="Upper limit", line=dict(color='gray')),
+        secondary_y=False,
+    )
+    fig.add_trace(
+        go.Scatter(x=time, y=limitlo, name="Lower limit", line=dict(color='gray')),
         secondary_y=False,
     )
 
     fig.add_trace(
-        go.Scatter(x=time, y=tec_status, name="TEC status"),
+        go.Scatter(x=time, y=tec_status, name="TEC status", line=dict(color='red')),
         secondary_y=True,
     )
-
+    
     # Add figure title
     # fig.update_layout(
     #     title_text="Temperature monitoring"
@@ -98,7 +110,7 @@ app.layout = html.Div(
           Input('interval-component-left', 'n_intervals'))
 def update_graph_live_left(n):
     latest_measurements = db_get_measurements(minutes=120)
-    fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.left_temperature, tec_status=latest_measurements.left_tec_status)
+    fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.left_temperature, target=latest_measurements.left_target, limithi=latest_measurements.left_limithi, limitlo=latest_measurements.left_limitlo, tec_status=latest_measurements.left_tec_status)
     return fig
 
 
@@ -106,7 +118,7 @@ def update_graph_live_left(n):
           Input('interval-component-right', 'n_intervals'))
 def update_graph_live_right(n):
     latest_measurements = db_get_measurements(minutes=120)
-    fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.right_temperature, tec_status=latest_measurements.right_tec_status)
+    fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.right_temperature, target=latest_measurements.right_target, limithi=latest_measurements.right_limithi, limitlo=latest_measurements.right_limitlo, tec_status=latest_measurements.right_tec_status)
     return fig
 
 
