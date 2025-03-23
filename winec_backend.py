@@ -5,7 +5,7 @@ import time
 import argparse
 import sys
 from datetime import datetime
-import RPi.GPIO as GPIO
+from gpiozero import LED
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode")
@@ -72,11 +72,13 @@ def default_params():
     params = {
         "loop_delay_seconds": 1,
         "left": {
+            "status": True,
             "target_temperature": 12.0,  # target temperature
             "temperature_deviation": 2.0,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
             "tec_cooldown_minutes": 5.0,  # the tec won't be activated again before waiting for the end of the cooldown delay
         },
         "right": {
+            "status": True,
             "target_temperature": 12.0,  # target temperature
             "temperature_deviation": 2.0,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
             "tec_cooldown_minutes": 5.0,  # the tec won't be activated again before waiting for the end of the cooldown delay
@@ -119,10 +121,10 @@ def get_current_temperatures():
     
     
 def init_tec(pin):
-    log("initializing tec at gpio {pin=}")
-    GPIO.setmode(GPIO.BOARD)
-    GPIO.setup(pin, GPIO.OUT)
-    GPIO.output(pin, GPIO.LOW)
+    log(f"initializing tec at gpio {pin=}")
+    tec = LED(pin)
+    tec.off()
+    return tec
 
 
 if __name__ == "__main__":
@@ -134,8 +136,8 @@ if __name__ == "__main__":
     init_db()
     
     # init actuators (tecs)
-    init_tec(args.left_tec_gpio)
-    init_tec(args.right_tec_gpio)
+    left_tec = init_tec(args.left_tec_gpio)
+    right_tec = init_tec(args.right_tec_gpio)
     left_tec_status = 0
     right_tec_status = 0
 
@@ -162,16 +164,28 @@ if __name__ == "__main__":
         if (left_tec_status == 1) & (left_temp < (params["left"]["target_temperature"] - params["left"]["temperature_deviation"])):
             # turn off and store
             # TODO handle cooldown
-            GPIO.output(args.left_tec_gpio, GPIO.LOW)
+            left_tec.off()
             left_tec_status = 0
         elif (left_tec_status == 0) & (left_temp > (params["left"]["target_temperature"] + params["left"]["temperature_deviation"])):
             # turn on and store
             # TODO handle cooldown
-            GPIO.output(args.left_tec_gpio, GPIO.HIGH)
+            left_tec.on()
             left_tec_status = 1
-        # TODO also for right
+        # also for right
+        if (right_tec_status == 1) & (right_temp < (params["right"]["target_temperature"] - params["right"]["temperature_deviation"])):
+            # turn off and store
+            # TODO handle cooldown
+            right_tec.off()
+            right_tec_status = 0
+        elif (right_tec_status == 0) & (right_temp > (params["right"]["target_temperature"] + params["right"]["temperature_deviation"])):
+            # turn on and store
+            # TODO handle cooldown
+            right_tec.on()
+            right_tec_status = 1
 
         # TODO security: if aberrant temp, just set everything off and exit
+
+        # TODO security: measure tachymeter, if abnormal (e.g. off) : set everything off and exit
         
         # wait until next cycle
         log(f"going to sleep for {params['loop_delay_seconds']} seconds")
