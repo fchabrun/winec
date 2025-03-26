@@ -237,15 +237,15 @@ content = html.Div(
             html.Div([
                 html.Div([
                     html.Div([dcc.Graph(id='live-update-graph-left')])
-                ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'middle'}),
+                ], style={'width': '50%', 'display': 'inline-block'}),
                 html.Div([
-                    html.P(id="left-frac-on"),
-                    html.P(id="left-watts"),
-                    html.P(id="left-tempdec"),
-                    html.P(id="left-tempinc"),
-                ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'text-top'}),
-            ], style={'display': 'flex', 'align-items': 'stretch'})
-        ], id='left-div', style={'width': '100%', 'display': 'block'}),
+                    html.P(id="left-frac-on", style={"display": "inline-block", "vertical-align": "middle", "width": "100%"}),
+                    html.P(id="left-watts", style={"display": "inline-block", "vertical-align": "middle", "width": "100%"}),
+                    html.P(id="left-tempdec", style={"display": "inline-block", "vertical-align": "middle", "width": "100%"}),
+                    html.P(id="left-tempinc", style={"display": "inline-block", "vertical-align": "middle", "width": "100%"}),
+                ], style={'width': '50%', 'display': 'inline-block'}),
+            ], style={})
+        ], id='left-div', style={'width': '100%', 'display': 'inline-block'}),
         html.Div([
             html.H2(children='Right compartment'),
             html.Div([
@@ -257,7 +257,7 @@ content = html.Div(
                     html.P(id="right-watts"),
                     html.P(id="right-tempdec"),
                     html.P(id="right-tempinc"),
-                ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'center'}),
+                ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'middle'}),
 
             ])
         ], id='right-div', style={'width': '100%', 'display': 'inline-block'}),
