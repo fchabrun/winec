@@ -3,6 +3,7 @@ import argparse
 import sqlite3
 import pandas as pd
 from dash import Dash, html, dcc, Input, Output, callback
+import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from datetime import timedelta
@@ -68,7 +69,7 @@ def db_get_measurements(minutes, side):
     return output_data
 
 
-app = Dash()
+app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 
 def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status):
