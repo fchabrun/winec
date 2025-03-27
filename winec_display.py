@@ -53,7 +53,6 @@ def save_params(params):
         json.dump(params, f, indent=4)
 
 
-
 # get temp/tec status measurements over the last X minutes, formatted as a pandas dataframe
 def db_get_measurements_(minutes):
     if args.fake_data:
@@ -69,10 +68,10 @@ def db_get_measurements_(minutes):
         tec_statuses = [1, ]
         for _ in times[1:]:
             temp_dec = .1
-            if (len(tec_statuses) > 1):
+            if len(tec_statuses) > 1:
                 temp_dec = temps[-1] - temps[-2]
                 temp_dec = temp_dec * 1.05
-                if (temp_dec < 0):
+                if temp_dec < 0:
                     temp_dec = .1
             temp_dec += rng.normal(loc=.0, scale=.1)
             if tec_statuses[-1] == 1:
@@ -409,7 +408,7 @@ def set_right_tdev(n_clicks):
     Output('set-right-tec-cooldown', 'value'),
     Input('json-load', 'n_clicks')
 )
-def set_right_tdev(n_clicks):
+def set_right_teccd(n_clicks):
     params = load_params()
     return params['right']['tec_cooldown_minutes']
 
@@ -506,7 +505,7 @@ def left_stats_tecib(n):
     Output("right-frac-on", "children"),
     Input('interval-component', 'n_intervals')
 )
-def left_stats_tecib(n):
+def right_stats_tecib(n):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     total_time = (latest_measurements.time.tolist()[-1] - latest_measurements.time.tolist()[0]) / timedelta(minutes=1)
     # how much time on
@@ -535,7 +534,7 @@ def left_stats_watts(n):
     Output("right-watts", "children"),
     Input('interval-component', 'n_intervals')
 )
-def left_stats_watts(n):
+def right_stats_watts(n):
     WATTS_PER_TEC = 85
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     total_time = (latest_measurements.time.tolist()[-1] - latest_measurements.time.tolist()[0]) / timedelta(minutes=1)
@@ -567,7 +566,7 @@ def left_stats_avgincrease(n):
     Output("right-tempinc", "children"),
     Input('interval-component', 'n_intervals')
 )
-def left_stats_avgincrease(n):
+def right_stats_avgincrease(n):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     # how much time on
     times_minutes = ((latest_measurements.time.tolist()[-1] - latest_measurements.time) / timedelta(minutes=1)).values
@@ -601,7 +600,7 @@ def left_stats_avgdecrease(n):
     Output("right-tempdec", "children"),
     Input('interval-component', 'n_intervals')
 )
-def left_stats_avgdecrease(n):
+def right_stats_avgdecrease(n):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     # how much time on
     times_minutes = ((latest_measurements.time.tolist()[-1] - latest_measurements.time) / timedelta(minutes=1)).values
@@ -615,7 +614,4 @@ def left_stats_avgdecrease(n):
 
 
 if __name__ == '__main__':
-    # TODO propose inputs
-
-    # TODO display some stats e.g. % time the TEC was on
     app.run(host=args.dash_ip)
