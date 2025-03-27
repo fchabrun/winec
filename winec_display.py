@@ -238,16 +238,16 @@ sidebar = html.Div(
         html.Button('Save', id='json-save', style={"width": "50%"}, n_clicks=0),
         html.Div(id='json-placeholder', style={"color": "red"}),
         html.Hr(),
-        html.Div([
-            html.P("Cycle length (seconds): ", style={"display": "inline-block", "width": "80%"}),
-            dcc.Input(id="set-cycle-length", type="number", min=CLEN_MIN, max=CLEN_MAX, step=CLEN_STEP, style={"display": "inline-block", "width": "20%", "text-align": "right"})
-        ]),
-        html.Hr(),
         html.P(id="display-length-text"),
         dcc.Slider(min=5, max=1440, step=5,
                    marks=None, value=60,
                    id='display-length-slider'
                    ),
+        html.Hr(),
+        html.Div([
+            html.P("Cycle length (seconds): ", style={"display": "inline-block", "width": "80%"}),
+            dcc.Input(id="set-cycle-length", type="number", min=CLEN_MIN, max=CLEN_MAX, step=CLEN_STEP, style={"display": "inline-block", "width": "20%", "text-align": "right"})
+        ]),
         html.Hr(),
         html.P("Left", className="lead"),
         html.Hr(),
