@@ -17,15 +17,17 @@ parser.add_argument("--host")
 parser.add_argument("--port")
 parser.add_argument("--dash_ip", default="192.168.1.13")
 parser.add_argument("--rundir", default="/home/cav/winec_rundir")
-parser.add_argument("--debug", default=True)
+parser.add_argument("--auto_debug", default=True)
 args = parser.parse_args()
 
 args.debug = args.debug is not None
 
-if args.debug and not os.path.exists(args.rundir):
+if args.auto_debug and not os.path.exists(args.rundir):
     args.dash_ip = "127.0.0.1"
     # args.rundir = r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Research\Common"
     args.rundir = r"C:\Users\flori\OneDrive\Documents\winec_temp"
+else:
+    args.auto_debug = False
 
 # TODO put a slider/something else to determine the refresh frequency
 # TODO put a slider to determine the number of previous minutes/hours to display/compute stats
@@ -53,7 +55,7 @@ def save_params(params):
 
 # get temp/tec status measurements over the last X minutes, formatted as a pandas dataframe
 def db_get_measurements_(minutes):
-    if args.debug:
+    if args.auto_debug:
         import numpy as np
         from datetime import datetime, timedelta
         rng = np.random.RandomState()
