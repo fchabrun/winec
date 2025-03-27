@@ -20,7 +20,7 @@ parser.add_argument("--rundir", default="/home/cav/winec_rundir")
 parser.add_argument("--auto_debug", default=True)
 args = parser.parse_args()
 
-args.debug = args.debug is not None
+args.auto_debug  = args.auto_debug  is not None
 
 if args.auto_debug and not os.path.exists(args.rundir):
     args.dash_ip = "127.0.0.1"
