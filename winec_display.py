@@ -570,8 +570,8 @@ def left_stats_avgincrease(n, params_minutes):
     # select only measures when tec is off
     times_minutes = times_minutes[tec_measurements == 0]
     temp_measurements = temp_measurements[tec_measurements == 0]
-    median_var = float(-np.median(np.diff(temp_measurements) / np.diff(times_minutes)))
-    return f"Median temperature increase when TEC is OFF: {median_var:+.3f}°C"
+    median_var = float(-np.mean(np.diff(temp_measurements) / np.diff(times_minutes)))
+    return f"Mean temperature increase when TEC is OFF: {median_var:+.3f}°C"
 
 
 @callback(
@@ -588,8 +588,8 @@ def right_stats_avgincrease(n, params_minutes):
     # select only measures when tec is off
     times_minutes = times_minutes[tec_measurements == 0]
     temp_measurements = temp_measurements[tec_measurements == 0]
-    median_var = float(-np.median(np.diff(temp_measurements) / np.diff(times_minutes)))
-    return f"Median temperature increase when TEC is OFF: {median_var:+.3f}°C"
+    median_var = float(-np.mean(np.diff(temp_measurements) / np.diff(times_minutes)))
+    return f"Mean temperature increase when TEC is OFF: {median_var:+.3f}°C"
 
 
 @callback(
@@ -606,8 +606,8 @@ def left_stats_avgdecrease(n, params_minutes):
     # select only measures when tec is off
     times_minutes = times_minutes[tec_measurements == 1]
     temp_measurements = temp_measurements[tec_measurements == 1]
-    median_var = float(-np.median(np.diff(temp_measurements) / np.diff(times_minutes)))
-    return f"Median temperature decrease when TEC is ON: {median_var:+.3f}°C"
+    median_var = float(-np.mean(np.diff(temp_measurements) / np.diff(times_minutes)))
+    return f"Mean temperature decrease when TEC is ON: {median_var:+.3f}°C"
 
 
 @callback(
@@ -627,8 +627,8 @@ def right_stats_avgdecrease(n, params_minutes):
     if len(times_minutes) < 2:  # TODO do for ALL and for figures
         median_var = np.nan
     else:
-        median_var = float(-np.median(np.diff(temp_measurements) / np.diff(times_minutes)))
-    return f"Median temperature decrease when TEC is ON: {median_var:+.3f}°C"
+        median_var = float(-np.mean(np.diff(temp_measurements) / np.diff(times_minutes)))
+    return f"Mean temperature decrease when TEC is ON: {median_var:+.3f}°C"
 
 
 @callback(
