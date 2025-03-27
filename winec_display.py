@@ -239,7 +239,7 @@ sidebar = html.Div(
         html.Div(id='json-placeholder', style={"color": "red"}),
         html.Hr(),
         html.P(id="display-length-text"),
-        dcc.Slider(min=5, max=1440, step=5,
+        dcc.Slider(min=10, max=120, step=10,
                    marks=None, value=60,
                    id='display-length-slider'
                    ),
@@ -571,7 +571,7 @@ def left_stats_avgincrease(n, params_minutes):
     times_minutes = times_minutes[tec_measurements == 0]
     temp_measurements = temp_measurements[tec_measurements == 0]
     median_var = float(-np.median(np.diff(temp_measurements) / np.diff(times_minutes)))
-    return f"Median temperature increase when TEC is OFF: {median_var:+.2f}°C"
+    return f"Median temperature increase when TEC is OFF: {median_var:+.3f}°C"
 
 
 @callback(
@@ -589,7 +589,7 @@ def right_stats_avgincrease(n, params_minutes):
     times_minutes = times_minutes[tec_measurements == 0]
     temp_measurements = temp_measurements[tec_measurements == 0]
     median_var = float(-np.median(np.diff(temp_measurements) / np.diff(times_minutes)))
-    return f"Median temperature increase when TEC is OFF: {median_var:+.2f}°C"
+    return f"Median temperature increase when TEC is OFF: {median_var:+.3f}°C"
 
 
 @callback(
@@ -607,7 +607,7 @@ def left_stats_avgdecrease(n, params_minutes):
     times_minutes = times_minutes[tec_measurements == 1]
     temp_measurements = temp_measurements[tec_measurements == 1]
     median_var = float(-np.median(np.diff(temp_measurements) / np.diff(times_minutes)))
-    return f"Median temperature decrease when TEC is ON: {median_var:+.2f}°C"
+    return f"Median temperature decrease when TEC is ON: {median_var:+.3f}°C"
 
 
 @callback(
@@ -628,7 +628,7 @@ def right_stats_avgdecrease(n, params_minutes):
         median_var = np.nan
     else:
         median_var = float(-np.median(np.diff(temp_measurements) / np.diff(times_minutes)))
-    return f"Median temperature decrease when TEC is ON: {median_var:+.2f}°C"
+    return f"Median temperature decrease when TEC is ON: {median_var:+.3f}°C"
 
 
 @callback(
