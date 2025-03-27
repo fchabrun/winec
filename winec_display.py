@@ -18,7 +18,8 @@ parser.add_argument("--port")
 parser.add_argument("--dash_ip", default="127.0.0.1")
 # parser.add_argument("--dash_ip", default="192.168.1.13")
 # parser.add_argument("--rundir", default="/home/cav/winec_rundir")
-parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive\Documents\winec_temp")
+# parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive\Documents\winec_temp")
+parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Research\Common")
 parser.add_argument("--debug", default=True)
 # parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Documents\winec\rundir")
 args = parser.parse_args()
@@ -203,29 +204,70 @@ CONTENT_STYLE = {
     "padding": "2rem 1rem",
 }
 
+CLEN_MIN = 1
+CLEN_MAX = 60
+CLEN_STEP = 1
+TTEMP_MIN = 2
+TTEMP_MAX = 20
+TTEMP_STEP = .1
+TEMPDEV_MIN = .1
+TEMPDEV_MAX = 5
+TEMPDEV_STEP = .1
+TECCD_MIN = 1
+TECCD_MAX = 300
+TECCD_STEP = 1
+
 sidebar = html.Div(
     [
         html.H2("WineC", className="display-4"),
         html.Hr(),
-        html.P("Settings"),
+        html.P("Settings", className="lead"),
         html.Button('Reload', id='json-load', style={"width": "50%"}, n_clicks=0),
         html.Button('Save', id='json-save', style={"width": "50%"}, n_clicks=0),
+        html.Div(id='json-placeholder', style={"color": "red"}),
         html.Hr(),
-        html.P(id="set-cycle-length"),
+        html.Div([
+            html.P("Cycle length (seconds): ", style={"display": "inline-block", "width": "80%"}),
+            dcc.Input(id="set-cycle-length", type="number", min=CLEN_MIN, max=CLEN_MAX, step=CLEN_STEP, style={"display": "inline-block", "width": "20%", "text-align": "right"})
+        ]),
         html.Hr(),
         html.P("Left", className="lead"),
         html.Hr(),
-        html.P(id="set-left-status"),
-        html.P(id="set-left-target-temp"),
-        html.P(id="set-left-temperature-deviation"),
-        html.P(id="set-left-tec-cooldown"),
+        html.Div([
+            html.P("Status:", style={"display": "inline-block", "width": "60%"}),
+            dcc.Dropdown(["ON", "OFF"], id="set-left-status", style={"display": "inline-block", "width": "40%", "text-align": "right"})
+        ]),
+        html.Div([
+            html.P("Target temperature (°C): ", style={"display": "inline-block", "width": "80%"}),
+            dcc.Input(id="set-left-target-temp", type="number", min=TTEMP_MIN, max=TTEMP_MAX, step=TTEMP_STEP, style={"display": "inline-block", "width": "20%", "text-align": "right"})
+        ]),
+        html.Div([
+            html.P("Tolerance (°C): +/-", style={"display": "inline-block", "width": "80%"}),
+            dcc.Input(id="set-left-temperature-deviation", type="number", min=TEMPDEV_MIN, max=TEMPDEV_MAX, step=TEMPDEV_STEP, style={"display": "inline-block", "width": "20%", "text-align": "right"})
+        ]),
+        html.Div([
+            html.P("TEC cooldown (seconds):", style={"display": "inline-block", "width": "80%"}),
+            dcc.Input(id="set-left-tec-cooldown", type="number", min=TECCD_MIN, max=TECCD_MAX, step=TECCD_STEP, style={"display": "inline-block", "width": "20%", "text-align": "right"})
+        ]),
         html.Hr(),
         html.P("Right", className="lead"),
         html.Hr(),
-        html.P(id="set-right-status"),
-        html.P(id="set-right-target-temp"),
-        html.P(id="set-right-temperature-deviation"),
-        html.P(id="set-right-tec-cooldown"),
+        html.Div([
+            html.P("Status:", style={"display": "inline-block", "width": "60%"}),
+            dcc.Dropdown(["ON", "OFF"], id="set-right-status", style={"display": "inline-block", "width": "40%", "text-align": "right"})
+        ]),
+        html.Div([
+            html.P("Target temperature (°C): ", style={"display": "inline-block", "width": "80%"}),
+            dcc.Input(id="set-right-target-temp", type="number", min=TTEMP_MIN, max=TTEMP_MAX, step=TTEMP_STEP, style={"display": "inline-block", "width": "20%", "text-align": "right"})
+        ]),
+        html.Div([
+            html.P("Tolerance (°C): +/-", style={"display": "inline-block", "width": "80%"}),
+            dcc.Input(id="set-right-temperature-deviation", type="number", min=TEMPDEV_MIN, max=TEMPDEV_MAX, step=TEMPDEV_STEP, style={"display": "inline-block", "width": "20%", "text-align": "right"})
+        ]),
+        html.Div([
+            html.P("TEC cooldown (seconds):", style={"display": "inline-block", "width": "80%"}),
+            dcc.Input(id="set-right-tec-cooldown", type="number", min=TECCD_MIN, max=TECCD_MAX, step=TECCD_STEP, style={"display": "inline-block", "width": "20%", "text-align": "right"})
+        ]),
     ],
     style=SIDEBAR_STYLE,
 )
@@ -278,84 +320,138 @@ app.layout = html.Div(
 
 
 @callback(
-    Output('set-cycle-length', 'children'),
+    Output('set-cycle-length', 'value'),
     Input('json-load', 'n_clicks')
 )
 def set_cycle_length(n_clicks):
     params = load_params()
-    return f"Cycle length (seconds): {params['loop_delay_seconds']}"
+    return params['loop_delay_seconds']
 
 
 @callback(
-    Output('set-left-status', 'children'),
+    Output('set-left-status', 'value'),
     Input('json-load', 'n_clicks')
 )
 def set_left_status(n_clicks):
     params = load_params()
-    return f"Status: {'ON' if params['left']['status'] else 'OFF'}"
+    return 'ON' if params['left']['status'] else 'OFF'
 
 
 @callback(
-    Output('set-left-target-temp', 'children'),
+    Output('set-left-target-temp', 'value'),
     Input('json-load', 'n_clicks')
 )
 def set_left_ttemp(n_clicks):
     params = load_params()
-    return f"Ttarget temperature (°C): {params['left']['target_temperature']}"
+    return params['left']['target_temperature']
 
 
 @callback(
-    Output('set-left-temperature-deviation', 'children'),
+    Output('set-left-temperature-deviation', 'value'),
     Input('json-load', 'n_clicks')
 )
 def set_left_tdev(n_clicks):
     params = load_params()
-    return f"Temperature tolerance (°C): +/-{params['left']['temperature_deviation']}"
+    return params['left']['temperature_deviation']
 
 
 @callback(
-    Output('set-left-tec-cooldown', 'children'),
+    Output('set-left-tec-cooldown', 'value'),
     Input('json-load', 'n_clicks')
 )
 def set_left_tdev(n_clicks):
     params = load_params()
-    return f"TEC cooldown (min): {params['left']['tec_cooldown_minutes']:.0f}"
+    return params['left']['tec_cooldown_minutes']
 
 
 @callback(
-    Output('set-right-status', 'children'),
+    Output('set-right-status', 'value'),
     Input('json-load', 'n_clicks')
 )
-def set_rt_status(n_clicks):
+def set_right_status(n_clicks):
     params = load_params()
-    return f"Status: {'ON' if params['right']['status'] else 'OFF'}"
+    return 'ON' if params['right']['status'] else 'OFF'
 
 
 @callback(
-    Output('set-right-target-temp', 'children'),
+    Output('set-right-target-temp', 'value'),
     Input('json-load', 'n_clicks')
 )
-def set_rt_ttemp(n_clicks):
+def set_right_ttemp(n_clicks):
     params = load_params()
-    return f"Target temperature (°C): {params['right']['target_temperature']}"
+    return params['right']['target_temperature']
 
 
 @callback(
-    Output('set-right-temperature-deviation', 'children'),
+    Output('set-right-temperature-deviation', 'value'),
     Input('json-load', 'n_clicks')
 )
-def set_rt_tdev(n_clicks):
+def set_right_tdev(n_clicks):
     params = load_params()
-    return f"Temperature tolerance (°C): +/-{params['right']['temperature_deviation']}"
+    return params['right']['temperature_deviation']
 
 
 @callback(
-    Output('set-right-tec-cooldown', 'children'),
+    Output('set-right-tec-cooldown', 'value'),
     Input('json-load', 'n_clicks')
 )
-def set_rt_tdev(n_clicks):
+def set_right_tdev(n_clicks):
     params = load_params()
-    return f"TEC cooldown (min): {params['right']['tec_cooldown_minutes']:.0f}"
+    return params['right']['tec_cooldown_minutes']
+
+
+@callback(
+    Output('json-placeholder', 'children'),
+    Input('json-save', 'n_clicks'),
+    State('set-cycle-length', 'value'),
+    State('set-left-status', 'value'),
+    State('set-left-target-temp', 'value'),
+    State('set-left-temperature-deviation', 'value'),
+    State('set-left-tec-cooldown', 'value'),
+    State('set-right-status', 'value'),
+    State('set-right-target-temp', 'value'),
+    State('set-right-temperature-deviation', 'value'),
+    State('set-right-tec-cooldown', 'value'),
+    prevent_initial_call=True
+)
+def update_output(n_clicks, cycle_len, left_status, left_ttemp, left_tempdev, left_teccd, right_status, right_ttemp, right_tempdev, right_teccd):
+    # check values
+    if (cycle_len < CLEN_MIN) or (cycle_len > CLEN_MAX) or (((1 / CLEN_STEP) * cycle_len) % 1 != 0):
+        return "Invalid settings cycle length"
+    if left_status not in ("ON", "OFF"):
+        return "Invalid settings for left status"
+    if (left_ttemp < TTEMP_MIN) or (left_ttemp > TTEMP_MAX) or (((1 / TTEMP_STEP) * left_ttemp) % 1 != 0):
+        return "Invalid settings for left temp target"
+    if (left_tempdev < TEMPDEV_MIN) or (left_tempdev > TEMPDEV_MAX) or (((1 / TEMPDEV_STEP) * left_tempdev) % 1 != 0):
+        return "Invalid settings for left temp tolerance"
+    if (left_teccd < TECCD_MIN) or (left_teccd > TECCD_MAX) or (((1 / TECCD_STEP) * left_teccd) % 1 != 0):
+        return "Invalid settings for left TEC CD"
+    if right_status not in ("ON", "OFF"):
+        return "Invalid settings for right status"
+    if (right_ttemp < TTEMP_MIN) or (right_ttemp > TTEMP_MAX) or (((1 / TTEMP_STEP) * right_ttemp) % 1 != 0):
+        return "Invalid settings for right temp target"
+    if (right_tempdev < TEMPDEV_MIN) or (right_tempdev > TEMPDEV_MAX) or (((1 / TEMPDEV_STEP) * right_tempdev) % 1 != 0):
+        return "Invalid settings for right temp tolerance"
+    if (right_teccd < TECCD_MIN) or (right_teccd > TECCD_MAX) or (((1 / TECCD_STEP) * right_teccd) % 1 != 0):
+        return "Invalid settings for right TEC CD"
+    # save to json
+    params = {
+        "loop_delay_seconds": cycle_len,
+        "left": {
+            "status": True if left_status == "ON" else False,
+            "target_temperature": left_ttemp,
+            "temperature_deviation": left_tempdev,
+            "tec_cooldown_minutes": left_teccd,
+        },
+        "right": {
+            "status": True if right_status == "ON" else False,
+            "target_temperature": right_ttemp,
+            "temperature_deviation": right_tempdev,
+            "tec_cooldown_minutes": right_teccd,
+        }
+    }
+    save_params(params)
+    return "Saved"
 
 
 @callback(Output('live-update-graph-left', 'figure'),
