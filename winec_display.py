@@ -15,20 +15,27 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--mode")
 parser.add_argument("--host")
 parser.add_argument("--port")
-parser.add_argument("--dash_ip", default="127.0.0.1")
-# parser.add_argument("--dash_ip", default="192.168.1.13")
-# parser.add_argument("--rundir", default="/home/cav/winec_rundir")
-# parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive\Documents\winec_temp")
-parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Research\Common")
+parser.add_argument("--dash_ip", default="192.168.1.13")
+parser.add_argument("--rundir", default="/home/cav/winec_rundir")
+parser.add_argument("--rundir", default=)
 parser.add_argument("--debug", default=True)
-# parser.add_argument("--rundir", default=r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Documents\winec\rundir")
 args = parser.parse_args()
 
 args.debug = args.debug is not None
 
+if args.debug and not os.path.exists(args.rundir):
+    args.dash_ip = "127.0.0.1"
+    # args.rundir = r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Research\Common"
+    args.rundir = r"C:\Users\flori\OneDrive\Documents\winec_temp"
+
+# TODO put a slider/something else to determine the refresh frequency
+# TODO put a slider to determine the number of previous minutes/hours to display/compute stats
+# TODO also display actual cycle frequency (independently of settings, just the observed one)
+# TODO also display 
+
 params_minutes = 120  # TODO set
 df_buffer = {'time': None, 'data': None, 'minutes': None}
-df_refresh_delay = 5  # refresh at most every 5 seconds  # TODO set
+df_refresh_delay = 1  # refresh at most every 5 seconds  # TODO set
 
 
 def load_params():
