@@ -35,7 +35,6 @@ else:
 # TODO also display actual cycle frequency (independently of settings, just the observed one)
 # TODO also display 
 
-params_minutes = 120  # TODO set
 df_buffer = {'time': None, 'data': None, 'minutes': None}
 df_refresh_delay = 5  # refresh at most every 5 seconds  # TODO set
 
@@ -243,6 +242,12 @@ sidebar = html.Div(
             html.P("Cycle length (seconds): ", style={"display": "inline-block", "width": "80%"}),
             dcc.Input(id="set-cycle-length", type="number", min=CLEN_MIN, max=CLEN_MAX, step=CLEN_STEP, style={"display": "inline-block", "width": "20%", "text-align": "right"})
         ]),
+        html.Hr(),
+        html.P(id="display-length-text"),
+        dcc.Slider(min=5, max=1440, step=5,
+                   marks=None, value=60,
+                   id='display-length-slider'
+                   ),
         html.Hr(),
         html.P("Left", className="lead"),
         html.Hr(),
@@ -468,8 +473,9 @@ def update_output(n_clicks, cycle_len, left_status, left_ttemp, left_tempdev, le
 
 
 @callback(Output('live-update-graph-left', 'figure'),
-          Input('interval-component', 'n_intervals'))
-def update_graph_live_left(n):
+          Input('interval-component', 'n_intervals'),
+          Input('display-length-slider', 'value'))
+def update_graph_live_left(n, params_minutes):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.left_temperature,
                          target=latest_measurements.left_target, limithi=latest_measurements.left_limithi,
@@ -478,8 +484,9 @@ def update_graph_live_left(n):
 
 
 @callback(Output('live-update-graph-right', 'figure'),
-          Input('interval-component', 'n_intervals'))
-def update_graph_live_right(n):
+          Input('interval-component', 'n_intervals'),
+          Input('display-length-slider', 'value'))
+def update_graph_live_right(n, params_minutes):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.right_temperature,
                          target=latest_measurements.right_target, limithi=latest_measurements.right_limithi,
@@ -489,9 +496,10 @@ def update_graph_live_right(n):
 
 @callback(
     Output("left-frac-on", "children"),
-    Input('interval-component', 'n_intervals')
+    Input('interval-component', 'n_intervals'),
+    Input('display-length-slider', 'value')
 )
-def left_stats_tecib(n):
+def left_stats_tecib(n, params_minutes):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     total_time = (latest_measurements.time.tolist()[-1] - latest_measurements.time.tolist()[0]) / timedelta(minutes=1)
     # how much time on
@@ -503,9 +511,10 @@ def left_stats_tecib(n):
 
 @callback(
     Output("right-frac-on", "children"),
-    Input('interval-component', 'n_intervals')
+    Input('interval-component', 'n_intervals'),
+    Input('display-length-slider', 'value')
 )
-def right_stats_tecib(n):
+def right_stats_tecib(n, params_minutes):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     total_time = (latest_measurements.time.tolist()[-1] - latest_measurements.time.tolist()[0]) / timedelta(minutes=1)
     # how much time on
@@ -517,9 +526,10 @@ def right_stats_tecib(n):
 
 @callback(
     Output("left-watts", "children"),
-    Input('interval-component', 'n_intervals')
+    Input('interval-component', 'n_intervals'),
+    Input('display-length-slider', 'value')
 )
-def left_stats_watts(n):
+def left_stats_watts(n, params_minutes):
     WATTS_PER_TEC = 85
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     total_time = (latest_measurements.time.tolist()[-1] - latest_measurements.time.tolist()[0]) / timedelta(minutes=1)
@@ -532,9 +542,10 @@ def left_stats_watts(n):
 
 @callback(
     Output("right-watts", "children"),
-    Input('interval-component', 'n_intervals')
+    Input('interval-component', 'n_intervals'),
+    Input('display-length-slider', 'value')
 )
-def right_stats_watts(n):
+def right_stats_watts(n, params_minutes):
     WATTS_PER_TEC = 85
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     total_time = (latest_measurements.time.tolist()[-1] - latest_measurements.time.tolist()[0]) / timedelta(minutes=1)
@@ -547,9 +558,10 @@ def right_stats_watts(n):
 
 @callback(
     Output("left-tempinc", "children"),
-    Input('interval-component', 'n_intervals')
+    Input('interval-component', 'n_intervals'),
+    Input('display-length-slider', 'value')
 )
-def left_stats_avgincrease(n):
+def left_stats_avgincrease(n, params_minutes):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     # how much time on
     times_minutes = ((latest_measurements.time.tolist()[-1] - latest_measurements.time) / timedelta(minutes=1)).values
@@ -559,14 +571,15 @@ def left_stats_avgincrease(n):
     times_minutes = times_minutes[tec_measurements == 0]
     temp_measurements = temp_measurements[tec_measurements == 0]
     median_var = float(-np.median(np.diff(temp_measurements) / np.diff(times_minutes)))
-    return f"Average temperature increase when TEC is OFF: {median_var:+.2f}°C"
+    return f"Median temperature increase when TEC is OFF: {median_var:+.2f}°C"
 
 
 @callback(
     Output("right-tempinc", "children"),
-    Input('interval-component', 'n_intervals')
+    Input('interval-component', 'n_intervals'),
+    Input('display-length-slider', 'value')
 )
-def right_stats_avgincrease(n):
+def right_stats_avgincrease(n, params_minutes):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     # how much time on
     times_minutes = ((latest_measurements.time.tolist()[-1] - latest_measurements.time) / timedelta(minutes=1)).values
@@ -576,14 +589,15 @@ def right_stats_avgincrease(n):
     times_minutes = times_minutes[tec_measurements == 0]
     temp_measurements = temp_measurements[tec_measurements == 0]
     median_var = float(-np.median(np.diff(temp_measurements) / np.diff(times_minutes)))
-    return f"Average temperature increase when TEC is OFF: {median_var:+.2f}°C"
+    return f"Median temperature increase when TEC is OFF: {median_var:+.2f}°C"
 
 
 @callback(
     Output("left-tempdec", "children"),
-    Input('interval-component', 'n_intervals')
+    Input('interval-component', 'n_intervals'),
+    Input('display-length-slider', 'value')
 )
-def left_stats_avgdecrease(n):
+def left_stats_avgdecrease(n, params_minutes):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     # how much time on
     times_minutes = ((latest_measurements.time.tolist()[-1] - latest_measurements.time) / timedelta(minutes=1)).values
@@ -593,14 +607,15 @@ def left_stats_avgdecrease(n):
     times_minutes = times_minutes[tec_measurements == 1]
     temp_measurements = temp_measurements[tec_measurements == 1]
     median_var = float(-np.median(np.diff(temp_measurements) / np.diff(times_minutes)))
-    return f"Average temperature decrease when TEC is ON: {median_var:+.2f}°C"
+    return f"Median temperature decrease when TEC is ON: {median_var:+.2f}°C"
 
 
 @callback(
     Output("right-tempdec", "children"),
-    Input('interval-component', 'n_intervals')
+    Input('interval-component', 'n_intervals'),
+    Input('display-length-slider', 'value')
 )
-def right_stats_avgdecrease(n):
+def right_stats_avgdecrease(n, params_minutes):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     # how much time on
     times_minutes = ((latest_measurements.time.tolist()[-1] - latest_measurements.time) / timedelta(minutes=1)).values
@@ -609,8 +624,19 @@ def right_stats_avgdecrease(n):
     # select only measures when tec is off
     times_minutes = times_minutes[tec_measurements == 1]
     temp_measurements = temp_measurements[tec_measurements == 1]
-    median_var = float(-np.median(np.diff(temp_measurements) / np.diff(times_minutes)))
-    return f"Average temperature decrease when TEC is ON: {median_var:+.2f}°C"
+    if len(times_minutes) < 2:  # TODO do for ALL and for figures
+        median_var = np.nan
+    else:
+        median_var = float(-np.median(np.diff(temp_measurements) / np.diff(times_minutes)))
+    return f"Median temperature decrease when TEC is ON: {median_var:+.2f}°C"
+
+
+@callback(
+    Output("display-length-text", "children"),
+    Input('display-length-slider', 'value')
+)
+def disp_last_nmin(params_minutes):
+    return f"Display last {params_minutes} minutes"
 
 
 if __name__ == '__main__':
