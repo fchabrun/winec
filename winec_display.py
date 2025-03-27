@@ -18,16 +18,17 @@ parser.add_argument("--port")
 parser.add_argument("--dash_ip", default="192.168.1.13")
 parser.add_argument("--rundir", default="/home/cav/winec_rundir")
 parser.add_argument("--auto_debug", default=True)
+parser.add_argument("--fake_data", default=False)
 args = parser.parse_args()
 
-args.auto_debug  = args.auto_debug  is not None
+args.auto_debug = args.auto_debug  is not None
 
 if args.auto_debug and not os.path.exists(args.rundir):
     args.dash_ip = "127.0.0.1"
     # args.rundir = r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Research\Common"
     args.rundir = r"C:\Users\flori\OneDrive\Documents\winec_temp"
 else:
-    args.auto_debug = False
+    args.fake_data = False
 
 # TODO put a slider/something else to determine the refresh frequency
 # TODO put a slider to determine the number of previous minutes/hours to display/compute stats
@@ -36,7 +37,7 @@ else:
 
 params_minutes = 120  # TODO set
 df_buffer = {'time': None, 'data': None, 'minutes': None}
-df_refresh_delay = 1  # refresh at most every 5 seconds  # TODO set
+df_refresh_delay = 5  # refresh at most every 5 seconds  # TODO set
 
 
 def load_params():
@@ -55,7 +56,7 @@ def save_params(params):
 
 # get temp/tec status measurements over the last X minutes, formatted as a pandas dataframe
 def db_get_measurements_(minutes):
-    if args.auto_debug:
+    if args.fake_data:
         import numpy as np
         from datetime import datetime, timedelta
         rng = np.random.RandomState()
@@ -107,6 +108,11 @@ def db_get_measurements_(minutes):
     connection.commit()
     connection.close()
     output_data = pd.DataFrame(query_results, columns=colnames)
+
+    output_data.time = pd.to_datetime(output_data.time)
+    output_data = output_data.astype({"left_temperature": float, 'left_target': float, 'left_limithi': float, 'left_limitlo': float, 'left_tec_status': int,
+                                      'right_temperature': float, 'right_target': float, 'right_limithi': float, 'right_limitlo': float, 'right_tec_status': int})
+
     return output_data
 
 
