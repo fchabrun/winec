@@ -17,7 +17,6 @@ parser.add_argument("--host")
 parser.add_argument("--port")
 parser.add_argument("--dash_ip", default="192.168.1.13")
 parser.add_argument("--rundir", default="/home/cav/winec_rundir")
-parser.add_argument("--rundir", default=)
 parser.add_argument("--debug", default=True)
 args = parser.parse_args()
 
