@@ -21,6 +21,8 @@ parser.add_argument("--auto_debug", default=True)
 parser.add_argument("--fake_data", default=False)
 args = parser.parse_args()
 
+#TODO display each "startup" of the backend script
+
 args.auto_debug = args.auto_debug  is not None
 
 if args.auto_debug and not os.path.exists(args.rundir):
