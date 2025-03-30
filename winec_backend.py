@@ -47,7 +47,7 @@ def init_db():
     log("intializing db")
     connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
     cursor = connection.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS temperature_measurements (time DATETIME, left_temperature FLOAT, left_target FLOAT, left_limithi FLOAT, left_limitlo FLOAT, right_temperature FLOAT, right_target FLOAT, right_limithi FLOAT, right_limitlo FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS temperature_measurements (time DATETIME, event TEXT, left_temperature FLOAT, left_target FLOAT, left_limithi FLOAT, left_limitlo FLOAT, right_temperature FLOAT, right_target FLOAT, right_limithi FLOAT, right_limitlo FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN, left_tec_on_cd BOOLEAN, right_tec_on_cd BOOLEAN)")
     connection.commit()
     connection.close()
     log("initialized db")
@@ -59,12 +59,22 @@ def clear_db():
     cursor.execute("DROP TABLE IF EXISTS temperature_measurements")
     connection.commit()
     connection.close()
-    
-def db_store_measurements(left_temp, left_target, left_limithi, left_limitlo, right_temp, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status):
-    log("storing measurements into db")
+
+
+def db_store_startup():
+    log("storing startup into db")
     connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
     cursor = connection.cursor()
-    cursor.execute(f"INSERT INTO temperature_measurements VALUES (DateTime('now'), {left_temp:.2f}, {left_target:.2f}, {left_limithi:.2f}, {left_limitlo:.2f}, {right_temp:.2f}, {right_target:.2f}, {right_limithi:.2f}, {right_limitlo:.2f}, {left_tec_status:b}, {right_tec_status:b})")
+    cursor.execute(f"INSERT INTO temperature_measurements VALUES (DateTime('now'), 'startup', 0, 0, 0, 0, 0, 0, 0, 0, false, false, false, false)")
+    connection.commit()
+    connection.close()
+
+
+def db_store_measurements(left_temp, left_target, left_limithi, left_limitlo, right_temp, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd):
+    # log("storing measurements into db")
+    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
+    cursor = connection.cursor()
+    cursor.execute(f"INSERT INTO temperature_measurements VALUES (DateTime('now'), 'entry', {left_temp:.2f}, {left_target:.2f}, {left_limithi:.2f}, {left_limitlo:.2f}, {right_temp:.2f}, {right_target:.2f}, {right_limithi:.2f}, {right_limitlo:.2f}, {left_tec_status:b}, {right_tec_status:b}, {left_tec_on_cd:b}, {right_tec_on_cd:b})")
     connection.commit()
     connection.close()
 
@@ -75,14 +85,14 @@ def default_params():
         "left": {
             "status": True,
             "target_temperature": 12.0,  # target temperature
-            "temperature_deviation": 2.0,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
-            "tec_cooldown_minutes": 5.0,  # the tec won't be activated again before waiting for the end of the cooldown delay
+            "temperature_deviation": 1.0,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
+            "tec_cooldown_seconds": 60,  # the tec won't be activated again before waiting for the end of the cooldown delay
         },
         "right": {
             "status": True,
             "target_temperature": 12.0,  # target temperature
-            "temperature_deviation": 2.0,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
-            "tec_cooldown_minutes": 5.0,  # the tec won't be activated again before waiting for the end of the cooldown delay
+            "temperature_deviation": 1.0,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
+            "tec_cooldown_seconds": 60,  # the tec won't be activated again before waiting for the end of the cooldown delay
         }
     }
     return params
@@ -100,7 +110,7 @@ def get_params():
     try:
         with open(json_path, "r") as f:
             params = json.load(f)
-        log(f"loaded params from json at path {json_path}")
+        # log(f"loaded params from json at path {json_path}")
     except:
         log(f"no params found at path {json_path}, loading defaults")
         params = default_params()
@@ -115,7 +125,7 @@ def get_params():
 
 # measures, etc.
 def get_current_temperatures():
-    log("getting sensor measurements")
+    # log("getting sensor measurements")
     left_temp = left_bmp.get_temp()
     right_temp = right_bmp.get_temp()
     return left_temp, right_temp
@@ -134,20 +144,24 @@ if __name__ == "__main__":
     if args.clean_params is not None:
         clear_params()
 
+    # initialize db
     init_db()
+    # store startup event and time
+    db_store_startup()
     
     # init actuators (tecs)
     left_tec = init_tec(args.left_tec_gpio)
     right_tec = init_tec(args.right_tec_gpio)
-    left_tec_status = 0
-    right_tec_status = 0
+    left_tec_status = False
+    right_tec_status = False
+    left_last_switched, right_last_switched = None, None
 
     # init sensors
     left_bmp = bmp180(args.left_bmp180_bus, args.left_bmp180_address)
     right_bmp = bmp180(args.right_bmp180_bus, args.right_bmp180_address)
 
     while True:
-        log("loop iteration")
+        # log("loop iteration")
 
         # load params at every cycle in case something changed
         params = get_params()
@@ -158,36 +172,51 @@ if __name__ == "__main__":
         # store new temperature measurements
         db_store_measurements(left_temp, params["left"]["target_temperature"], params["left"]["target_temperature"] + params["left"]["temperature_deviation"], params["left"]["target_temperature"] - params["left"]["temperature_deviation"],
                               right_temp, params["right"]["target_temperature"], params["right"]["target_temperature"] + params["right"]["temperature_deviation"], params["right"]["target_temperature"] - params["right"]["temperature_deviation"],
-                              left_tec_status, right_tec_status)
-        
+                              left_tec_status, right_tec_status,
+                              (not left_tec_status) and (time.time() - left_last_switched < params["left"]["tec_cooldown_seconds"]),  # is on CD?
+                              (not right_tec_status) and (time.time() - right_last_switched < params["right"]["tec_cooldown_seconds"]),  # is on CD?
+                              )
+
         # decide if tec has to go on or off
-        log("measurement-based decision")
-        if (left_tec_status == 1) & (left_temp < (params["left"]["target_temperature"] - params["left"]["temperature_deviation"])):
+        # log("measurement-based decision")
+        if (left_tec_status) & (left_temp < (params["left"]["target_temperature"] - params["left"]["temperature_deviation"])):
             # turn off and store
-            # TODO handle cooldown
+            log("turning left tec off")
             left_tec.off()
-            left_tec_status = 0
-        elif (left_tec_status == 0) & (left_temp > (params["left"]["target_temperature"] + params["left"]["temperature_deviation"])):
-            # turn on and store
-            # TODO handle cooldown
-            left_tec.on()
-            left_tec_status = 1
+            left_tec_status = False
+            left_last_switched = time.time()
+        elif (not left_tec_status) & (left_temp > (params["left"]["target_temperature"] + params["left"]["temperature_deviation"])):
+            # before turning on, checked that the CD is off
+            if (left_last_switched is None) or (time.time() - left_last_switched > params["left"]["tec_cooldown_seconds"]):
+                # turn on and store
+                log("turning left tec on")
+                left_last_switched = time.time()
+                left_tec.on()
+                left_tec_status = True
         # also for right
-        if (right_tec_status == 1) & (right_temp < (params["right"]["target_temperature"] - params["right"]["temperature_deviation"])):
+        if (right_tec_status) & (right_temp < (params["right"]["target_temperature"] - params["right"]["temperature_deviation"])):
             # turn off and store
-            # TODO handle cooldown
+            log("turning right tec off")
             right_tec.off()
-            right_tec_status = 0
-        elif (right_tec_status == 0) & (right_temp > (params["right"]["target_temperature"] + params["right"]["temperature_deviation"])):
-            # turn on and store
-            # TODO handle cooldown
-            right_tec.on()
-            right_tec_status = 1
+            right_tec_status = False
+            right_last_switched = time.time()
+        elif (not right_tec_status) & (right_temp > (params["right"]["target_temperature"] + params["right"]["temperature_deviation"])):
+            # before turning on, checked that the CD is off
+            if (right_last_switched is None) or (time.time() - right_last_switched > params["right"]["tec_cooldown_seconds"]):
+                # turn on and store
+                log("turning right tec on")
+                right_last_switched = time.time()
+                right_tec.on()
+                right_tec_status = True
+
+        # TODO should we store if TEC are on CD?
 
         # TODO security: if aberrant temp, just set everything off and exit
+
+        # TODO security: measure radiators temperature and emergency shutdown if abnormal
 
         # TODO security: measure tachymeter, if abnormal (e.g. off) : set everything off and exit
         
         # wait until next cycle
-        log(f"going to sleep for {params['loop_delay_seconds']} seconds")
+        # log(f"going to sleep for {params['loop_delay_seconds']} seconds")
         time.sleep(params["loop_delay_seconds"])

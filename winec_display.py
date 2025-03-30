@@ -6,7 +6,7 @@ from dash import Dash, html, dcc, Input, Output, callback, State
 import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
-from datetime import timedelta
+from datetime import datetime, timedelta
 import numpy as np
 import time
 import json
@@ -21,8 +21,6 @@ parser.add_argument("--auto_debug", default=True)
 parser.add_argument("--fake_data", default=False)
 args = parser.parse_args()
 
-#TODO display each "startup" of the backend script
-
 args.auto_debug = args.auto_debug  is not None
 
 if args.auto_debug and not os.path.exists(args.rundir):
@@ -32,11 +30,10 @@ if args.auto_debug and not os.path.exists(args.rundir):
 else:
     args.fake_data = False
 
-# TODO tester nouveau support fan: empecher air de passer en retro
-# TODO tester nouveau support fan: plus serrer haut et bas?
+# TODO display radiators temp
 
 df_buffer = {'time': None, 'data': None, 'minutes': None}
-df_refresh_delay = 5  # refresh at most every 5 seconds  # TODO set
+df_refresh_delay = 5  # refresh at most every 5 seconds
 
 
 def load_params():
@@ -52,69 +49,72 @@ def save_params(params):
         json.dump(params, f, indent=4)
 
 
+def create_fake_measurements_(minutes):
+    rng = np.random.RandomState()
+    times = np.arange(0, minutes)
+    target = 12
+    limithi = target + 2
+    limitlo = target - 2
+    tini = (1 - (datetime.now().second / 60)) * (limithi - limitlo) + limitlo
+    temps = [tini, ]
+    tec_statuses = [1, ]
+    for _ in times[1:]:
+        temp_dec = .1
+        if len(tec_statuses) > 1:
+            temp_dec = temps[-1] - temps[-2]
+            temp_dec = temp_dec * 1.05
+            if temp_dec < 0:
+                temp_dec = .1
+        temp_dec += rng.normal(loc=.0, scale=.1)
+        if tec_statuses[-1] == 1:
+            temps.append(temps[-1] - temp_dec)
+        else:
+            temps.append(temps[-1] + temp_dec)
+        if (temps[-1] < limitlo) and (tec_statuses[-1] == 1):
+            tec_statuses.append(0)
+        elif (temps[-1] > limithi) and (tec_statuses[-1] == 0):
+            tec_statuses.append(1)
+        else:
+            tec_statuses.append(tec_statuses[-1])
+    output_data = pd.DataFrame({"time": [datetime.now() - timedelta(minutes=minutes - int(t)) for t in times],
+                                "left_temperature": temps,
+                                "left_target": np.repeat(target, len(times)),
+                                "left_limithi": np.repeat(limithi, len(times)),
+                                "left_limitlo": np.repeat(limitlo, len(times)),
+                                "left_tec_status": tec_statuses,
+                                "right_temperature": temps,
+                                "right_target": np.repeat(target, len(times)),
+                                "right_limithi": np.repeat(limithi, len(times)),
+                                "right_limitlo": np.repeat(limitlo, len(times)),
+                                "right_tec_status": tec_statuses})
+    return output_data
+
 # get temp/tec status measurements over the last X minutes, formatted as a pandas dataframe
 def db_get_measurements_(minutes):
+    # if set to debug: create fake data
     if args.fake_data:
-        import numpy as np
-        from datetime import datetime, timedelta
-        rng = np.random.RandomState()
-        times = np.arange(0, minutes)
-        target = 12
-        limithi = target + 2
-        limitlo = target - 2
-        tini = (1 - (datetime.now().second / 60)) * (limithi - limitlo) + limitlo
-        temps = [tini, ]
-        tec_statuses = [1, ]
-        for _ in times[1:]:
-            temp_dec = .1
-            if len(tec_statuses) > 1:
-                temp_dec = temps[-1] - temps[-2]
-                temp_dec = temp_dec * 1.05
-                if temp_dec < 0:
-                    temp_dec = .1
-            temp_dec += rng.normal(loc=.0, scale=.1)
-            if tec_statuses[-1] == 1:
-                temps.append(temps[-1] - temp_dec)
-            else:
-                temps.append(temps[-1] + temp_dec)
-            if (temps[-1] < limitlo) and (tec_statuses[-1] == 1):
-                tec_statuses.append(0)
-            elif (temps[-1] > limithi) and (tec_statuses[-1] == 0):
-                tec_statuses.append(1)
-            else:
-                tec_statuses.append(tec_statuses[-1])
-        output_data = pd.DataFrame({"time": [datetime.now() - timedelta(minutes=minutes - int(t)) for t in times],
-                                    "left_temperature": temps,
-                                    "left_target": np.repeat(target, len(times)),
-                                    "left_limithi": np.repeat(limithi, len(times)),
-                                    "left_limitlo": np.repeat(limitlo, len(times)),
-                                    "left_tec_status": tec_statuses,
-                                    "right_temperature": temps,
-                                    "right_target": np.repeat(target, len(times)),
-                                    "right_limithi": np.repeat(limithi, len(times)),
-                                    "right_limitlo": np.repeat(limitlo, len(times)),
-                                    "right_tec_status": tec_statuses})
-        return output_data
+        return create_fake_measurements_(minutes=minutes)
+    # the real function
     connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
     cursor = connection.cursor()
-    colnames = ["time",
-                "left_temperature", "left_target", "left_limithi", "left_limitlo", "left_tec_status",
-                "right_temperature", "right_target", "right_limithi", "right_limitlo", "right_tec_status", ]
+    colnames = ["time", "event",
+                "left_temperature", "left_target", "left_limithi", "left_limitlo", "left_tec_status", "left_tec_on_cd",
+                "right_temperature", "right_target", "right_limithi", "right_limitlo", "right_tec_status", "right_tec_on_cd", ]
     cursor.execute(
         f"SELECT {', '.join(colnames)} FROM temperature_measurements WHERE time > DATETIME('now', '-{minutes} minute')")  # execute a simple SQL select query
     query_results = cursor.fetchall()
     connection.commit()
     connection.close()
     output_data = pd.DataFrame(query_results, columns=colnames)
-
+    # format correctly
     output_data.time = pd.to_datetime(output_data.time)
-    output_data = output_data.astype({"left_temperature": float, 'left_target': float, 'left_limithi': float, 'left_limitlo': float, 'left_tec_status': int,
-                                      'right_temperature': float, 'right_target': float, 'right_limithi': float, 'right_limitlo': float, 'right_tec_status': int})
+    output_data = output_data.astype({"left_temperature": float, 'left_target': float, 'left_limithi': float, 'left_limitlo': float, 'left_tec_status': int, 'left_tec_on_cd': int,
+                                      'right_temperature': float, 'right_target': float, 'right_limithi': float, 'right_limitlo': float, 'right_tec_status': int, 'right_tec_on_cd': int})
 
     return output_data
 
 
-def db_get_measurements(minutes, df_buffer):
+def db_get_raw_measurements(minutes, df_buffer):
     if (df_buffer["data"] is not None) and ((time.time() - df_buffer['time']) < df_refresh_delay) and (
             df_buffer['minutes'] == minutes):
         return df_buffer['data']
@@ -126,27 +126,52 @@ def db_get_measurements(minutes, df_buffer):
         return data
 
 
+def db_get_measurements(minutes, df_buffer, events=["entry", ]):
+    raw_data = db_get_raw_measurements(minutes=minutes, df_buffer=df_buffer)
+    return raw_data[raw_data.event.isin(events)]
+
+
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 
-def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status):
+def rework_onoff_with_times(time, onoff):
+    time_rw, onoff_rw = [], []
+    prev_onoff = None
+    for new_t, new_onoff in zip(time, onoff):
+        if prev_onoff is not None:
+            if prev_onoff != new_onoff:
+                time_rw.append(new_t)
+                onoff_rw.append(prev_onoff)
+        prev_onoff = new_onoff
+        time_rw.append(new_t)
+        onoff_rw.append(new_onoff)
+    return time_rw, onoff_rw
+
+
+def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status, tec_on_cd, startup_times):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
     # rework data for tec display
-    time_rw, tec_status_rw = [], []
-    prev_tec = None
-    for new_t, new_tec in zip(time, tec_status):
-        if prev_tec is not None:
-            if prev_tec != new_tec:
-                time_rw.append(new_t)
-                tec_status_rw.append(prev_tec)
-        prev_tec = new_tec
-        time_rw.append(new_t)
-        tec_status_rw.append(new_tec)
+    tec_status_time_rw, tec_status_onoff_rw = rework_onoff_with_times(time, tec_status)
+    tec_cd_time_rw, tec_cd_onoff_rw = rework_onoff_with_times(time, tec_on_cd)
+
+    # add startup times
+    for startup_time in startup_times:
+        fig.add_vline(
+            x=startup_time, line_width=3, line_dash="dash", line_color="green",
+            annotation_text="start",
+            annotation_position="top right", annotation_textangle=90
+        )
 
     # TEC status
     fig.add_trace(
-        go.Scatter(x=time_rw, y=tec_status_rw, name="TEC status", line=dict(width=.5, color='rgb(255,200,200)'),
+        go.Scatter(x=tec_status_time_rw, y=tec_status_onoff_rw, name="TEC status", line=dict(width=.5, color='rgb(255,200,200)'),
+                   fill='tozeroy'),
+        secondary_y=True,
+    )
+    # & tec on cd
+    fig.add_trace(
+        go.Scatter(x=tec_cd_time_rw, y=tec_cd_onoff_rw, name="TEC on CD", line=dict(width=.5, color='rgb(200,200,200)'),
                    fill='tozeroy'),
         secondary_y=True,
     )
@@ -225,7 +250,7 @@ TTEMP_STEP = .1
 TEMPDEV_MIN = .1
 TEMPDEV_MAX = 5
 TEMPDEV_STEP = .1
-TECCD_MIN = 1
+TECCD_MIN = 10
 TECCD_MAX = 300
 TECCD_STEP = 1
 
@@ -294,6 +319,7 @@ sidebar = html.Div(
 content = html.Div(
     [
         html.Div([
+            html.H2(id="current-backend-status", className="lead"),
             html.H2(children='Left compartment'),
             html.Div([
                 html.Div([
@@ -383,7 +409,7 @@ def set_left_tdev(n_clicks):
 )
 def set_left_tdev(n_clicks):
     params = load_params()
-    return params['left']['tec_cooldown_minutes']
+    return params['left']['tec_cooldown_seconds']
 
 
 @callback(
@@ -419,7 +445,7 @@ def set_right_tdev(n_clicks):
 )
 def set_right_teccd(n_clicks):
     params = load_params()
-    return params['right']['tec_cooldown_minutes']
+    return params['right']['tec_cooldown_seconds']
 
 
 @callback(
@@ -463,17 +489,31 @@ def update_output(n_clicks, cycle_len, left_status, left_ttemp, left_tempdev, le
             "status": True if left_status == "ON" else False,
             "target_temperature": left_ttemp,
             "temperature_deviation": left_tempdev,
-            "tec_cooldown_minutes": left_teccd,
+            "tec_cooldown_seconds": left_teccd,
         },
         "right": {
             "status": True if right_status == "ON" else False,
             "target_temperature": right_ttemp,
             "temperature_deviation": right_tempdev,
-            "tec_cooldown_minutes": right_teccd,
+            "tec_cooldown_seconds": right_teccd,
         }
     }
     save_params(params)
     return "Saved"
+
+
+@callback(Output('current-backend-status', 'children'),
+          Input('interval-component', 'n_intervals'),
+          Input('display-length-slider', 'value'))
+def bes1(n, params_minutes):
+    # load last db entry and check last seen time
+    latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
+    seen_last_since = (datetime.now() - latest_measurements.time.tolist()[-1]) / timedelta(seconds=1)
+    # time out is cycle length + 5 seconds tolerance
+    params = load_params()
+    timeout_time = params["loop_delay_seconds"] + 5
+    backend_status = "ALIVE" if seen_last_since < timeout_time else "AWOL"
+    return f"Backend status is currently: {backend_status} (refreshed {seen_last_since:.0f} seconds ago)"
 
 
 @callback(Output('live-update-graph-left', 'figure'),
@@ -481,9 +521,12 @@ def update_output(n_clicks, cycle_len, left_status, left_ttemp, left_tempdev, le
           Input('display-length-slider', 'value'))
 def update_graph_live_left(n, params_minutes):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
+    startup_entries = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer, events=["startup",])
     fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.left_temperature,
                          target=latest_measurements.left_target, limithi=latest_measurements.left_limithi,
-                         limitlo=latest_measurements.left_limitlo, tec_status=latest_measurements.left_tec_status)
+                         limitlo=latest_measurements.left_limitlo, tec_status=latest_measurements.left_tec_status,
+                         tec_on_cd=latest_measurements.left_tec_on_cd,
+                         startup_times=startup_entries.time)
     return fig
 
 
@@ -492,9 +535,12 @@ def update_graph_live_left(n, params_minutes):
           Input('display-length-slider', 'value'))
 def update_graph_live_right(n, params_minutes):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
+    startup_entries = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer, events=["startup",])
     fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.right_temperature,
                          target=latest_measurements.right_target, limithi=latest_measurements.right_limithi,
-                         limitlo=latest_measurements.right_limitlo, tec_status=latest_measurements.right_tec_status)
+                         limitlo=latest_measurements.right_limitlo, tec_status=latest_measurements.right_tec_status,
+                         tec_on_cd=latest_measurements.right_tec_on_cd,
+                         startup_times=startup_entries.time)
     return fig
 
 
