@@ -138,6 +138,14 @@ def init_tec(pin):
     return tec
 
 
+def tec_on_cd(tec_status, last_switched, tec_cooldown):
+    if tec_status:
+        return False
+    if last_switched is None:
+        return False
+    return time.time() - last_switched < tec_cooldown
+
+
 if __name__ == "__main__":
     if args.clean_db is not None:
         clear_db()
@@ -173,9 +181,8 @@ if __name__ == "__main__":
         db_store_measurements(left_temp, params["left"]["target_temperature"], params["left"]["target_temperature"] + params["left"]["temperature_deviation"], params["left"]["target_temperature"] - params["left"]["temperature_deviation"],
                               right_temp, params["right"]["target_temperature"], params["right"]["target_temperature"] + params["right"]["temperature_deviation"], params["right"]["target_temperature"] - params["right"]["temperature_deviation"],
                               left_tec_status, right_tec_status,
-                              (not left_tec_status) and (time.time() - left_last_switched < params["left"]["tec_cooldown_seconds"]),  # is on CD?
-                              (not right_tec_status) and (time.time() - right_last_switched < params["right"]["tec_cooldown_seconds"]),  # is on CD?
-                              )
+                              tec_on_cd(tec_status=left_tec_status, last_switched=left_last_switched, tec_cooldown=params["left"]["tec_cooldown_seconds"]),
+                              tec_on_cd(tec_status=right_tec_status, last_switched=right_last_switched, tec_cooldown=params["right"]["tec_cooldown_seconds"]))
 
         # decide if tec has to go on or off
         # log("measurement-based decision")
