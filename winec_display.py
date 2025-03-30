@@ -181,7 +181,7 @@ def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status):
 
     # get first y axis range
     upper_temp_limit = max(max(temperature), max(limithi)) + 1
-    lower_temp_limit = min(min(temperature), min(limithi)) - 1
+    lower_temp_limit = min(min(temperature), min(limitlo)) - 1
 
     # Set y-axes titles
     fig.update_yaxes(title_text="Temperature (°C)", range=(lower_temp_limit, upper_temp_limit), secondary_y=False)
