@@ -29,8 +29,9 @@ print(f"running at {args.rundir}")
 
 # logs
 def log(s):
-    with open(os.path.join(args.rundir, "winec.log"), "a") as f:
-        f.write(f"{datetime.now()}    {s}" + "\n")
+    # with open(os.path.join(args.rundir, "winec.log"), "a") as f:
+    #     f.write(f"{datetime.now()}    {s}" + "\n")
+    print(f"{datetime.now()}    {s}")
         
 os.makedirs(args.rundir, exist_ok=True)
 log(f"running at {args.rundir}")
