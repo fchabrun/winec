@@ -32,12 +32,6 @@ else:
 
 # TODO display radiators temp
 
-# TODO fix datetimes not matching
-
-# TODO print startup time correctly
-
-# tODO print "n minutes ago" instead of date??
-
 df_buffer = {'time': None, 'data': None, 'minutes': None}
 df_refresh_delay = 5  # refresh at most every 5 seconds
 
@@ -163,18 +157,6 @@ def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status, tec_
     tec_status_time_rw, tec_status_onoff_rw = rework_onoff_with_times(time, tec_status)
     tec_cd_time_rw, tec_cd_onoff_rw = rework_onoff_with_times(time, tec_on_cd)
 
-
-
-    # add startup times
-    for startup_time in startup_times:
-        axis_startup_time = ((startup_time.timestamp() - time.min().timestamp()) + 1)
-        fig.add_vline(
-            # x=startup_time,
-            x=axis_startup_time,
-            line_width=3, line_dash="dash", line_color="green",
-            annotation_text="start",
-            annotation_position="top right", annotation_textangle=90
-        )
     # TEC status
     fig.add_trace(
         go.Scatter(x=tec_status_time_rw, y=tec_status_onoff_rw, name="TEC status", line=dict(width=.5, color='rgb(255,200,200)'),
@@ -198,22 +180,25 @@ def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status, tec_
         secondary_y=False,
     )
 
-    # Temperature measures
-    fig.add_trace(
-        go.Scatter(x=time, y=temperature, name="Measured", line=dict(color='blue')),
-        secondary_y=False,
-    )
-
     # Target
     fig.add_trace(
         go.Scatter(x=time, y=target, name="Target", line=dict(color='black')),
         secondary_y=False,
     )
 
-    # Add figure title
-    # fig.update_layout(
-    #     title_text="Temperature monitoring"
-    # )
+    # Temperature measures
+    fig.add_trace(
+        go.Scatter(x=time, y=temperature, name="Measured", line=dict(color='blue')),
+        secondary_y=False,
+    )
+
+    # add startup times
+    for startup_time in startup_times:
+        fig.add_trace(
+            go.Scatter(x=[startup_time, startup_time], y=[0, 1], mode="lines", name="Startup",
+                       line=dict(width=3, color='rgb(0,180,0)')),
+            secondary_y=True,
+        )
 
     # Set x-axis title
     fig.update_xaxes(title_text="Time")
