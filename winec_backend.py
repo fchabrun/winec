@@ -42,6 +42,8 @@ sys.path.append(root_dir)
 log(f"importing bmp180 library")
 from bmp180 import bmp180
 
+# TODO convert datetimes to text and use datetime.now() to fill in
+
 # sqlite3 db
 def init_db():
     log("intializing db")

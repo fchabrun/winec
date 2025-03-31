@@ -32,9 +32,14 @@ else:
 
 # TODO display radiators temp
 
+# TODO fix datetimes not matching
+
+# TODO print startup time correctly
+
+# tODO print "n minutes ago" instead of date??
+
 df_buffer = {'time': None, 'data': None, 'minutes': None}
 df_refresh_delay = 5  # refresh at most every 5 seconds
-
 
 def load_params():
     json_path = os.path.join(args.rundir, "settings.json")
@@ -155,14 +160,18 @@ def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status, tec_
     tec_status_time_rw, tec_status_onoff_rw = rework_onoff_with_times(time, tec_status)
     tec_cd_time_rw, tec_cd_onoff_rw = rework_onoff_with_times(time, tec_on_cd)
 
+
+
     # add startup times
     for startup_time in startup_times:
+        axis_startup_time = ((startup_time.timestamp() - time.min().timestamp()) + 1)
         fig.add_vline(
-            x=startup_time, line_width=3, line_dash="dash", line_color="green",
+            # x=startup_time,
+            x=axis_startup_time,
+            line_width=3, line_dash="dash", line_color="green",
             annotation_text="start",
             annotation_position="top right", annotation_textangle=90
         )
-
     # TEC status
     fig.add_trace(
         go.Scatter(x=tec_status_time_rw, y=tec_status_onoff_rw, name="TEC status", line=dict(width=.5, color='rgb(255,200,200)'),
@@ -171,7 +180,7 @@ def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status, tec_
     )
     # & tec on cd
     fig.add_trace(
-        go.Scatter(x=tec_cd_time_rw, y=tec_cd_onoff_rw, name="TEC on CD", line=dict(width=.5, color='rgb(200,200,200)'),
+        go.Scatter(x=tec_cd_time_rw, y=tec_cd_onoff_rw, name="TEC on CD", line=dict(width=.5, color='rgb(255,219,187)'),
                    fill='tozeroy'),
         secondary_y=True,
     )
@@ -220,7 +229,7 @@ def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status, tec_
         secondary_y=True,
     )
 
-    fig.update_layout(template="plotly_white", margin=dict(t=0, b=0))
+    fig.update_layout(template="plotly_white", margin=dict(t=50, b=50))
 
     return fig
 
