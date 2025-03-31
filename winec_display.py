@@ -30,6 +30,8 @@ if args.auto_debug and not os.path.exists(args.rundir):
 else:
     args.fake_data = False
 
+# TODO convert datetimes to text and use datetime.now() to fill in
+
 # TODO display radiators temp
 
 # TODO fix datetimes not matching
@@ -40,6 +42,7 @@ else:
 
 df_buffer = {'time': None, 'data': None, 'minutes': None}
 df_refresh_delay = 5  # refresh at most every 5 seconds
+
 
 def load_params():
     json_path = os.path.join(args.rundir, "settings.json")
@@ -100,7 +103,7 @@ def db_get_measurements_(minutes):
     if args.fake_data:
         return create_fake_measurements_(minutes=minutes)
     # the real function
-    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
+    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"), timeout=10)
     cursor = connection.cursor()
     colnames = ["time", "event",
                 "left_temperature", "left_target", "left_limithi", "left_limitlo", "left_tec_status", "left_tec_on_cd",

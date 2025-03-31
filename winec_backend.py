@@ -27,12 +27,15 @@ args = parser.parse_args()
 
 print(f"running at {args.rundir}")
 
-# logs
+
+def now():
+    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+
 def log(s):
-    # with open(os.path.join(args.rundir, "winec.log"), "a") as f:
-    #     f.write(f"{datetime.now()}    {s}" + "\n")
-    print(f"{datetime.now()}    {s}")
-        
+    print(f"{now()}    {s}")
+
+
 os.makedirs(args.rundir, exist_ok=True)
 log(f"running at {args.rundir}")
     
@@ -42,21 +45,21 @@ sys.path.append(root_dir)
 log(f"importing bmp180 library")
 from bmp180 import bmp180
 
-# TODO convert datetimes to text and use datetime.now() to fill in
 
 # sqlite3 db
 def init_db():
     log("intializing db")
-    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
+    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"), timeout=10)
     cursor = connection.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS temperature_measurements (time DATETIME, event TEXT, left_temperature FLOAT, left_target FLOAT, left_limithi FLOAT, left_limitlo FLOAT, right_temperature FLOAT, right_target FLOAT, right_limithi FLOAT, right_limitlo FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN, left_tec_on_cd BOOLEAN, right_tec_on_cd BOOLEAN)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS temperature_measurements (time TEXT, event TEXT, left_temperature FLOAT, left_target FLOAT, left_limithi FLOAT, left_limitlo FLOAT, right_temperature FLOAT, right_target FLOAT, right_limithi FLOAT, right_limitlo FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN, left_tec_on_cd BOOLEAN, right_tec_on_cd BOOLEAN)")
     connection.commit()
     connection.close()
     log("initialized db")
+
     
 def clear_db():
     log("cleaning db")
-    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
+    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"), timeout=10)
     cursor = connection.cursor()
     cursor.execute("DROP TABLE IF EXISTS temperature_measurements")
     connection.commit()
@@ -65,18 +68,18 @@ def clear_db():
 
 def db_store_startup():
     log("storing startup into db")
-    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
+    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"), timeout=10)
     cursor = connection.cursor()
-    cursor.execute(f"INSERT INTO temperature_measurements VALUES (DateTime('now'), 'startup', 0, 0, 0, 0, 0, 0, 0, 0, false, false, false, false)")
+    cursor.execute(f"INSERT INTO temperature_measurements VALUES ('{now()}', 'startup', 0, 0, 0, 0, 0, 0, 0, 0, false, false, false, false)")
     connection.commit()
     connection.close()
 
 
 def db_store_measurements(left_temp, left_target, left_limithi, left_limitlo, right_temp, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd):
     # log("storing measurements into db")
-    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"))
+    connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"), timeout=10)
     cursor = connection.cursor()
-    cursor.execute(f"INSERT INTO temperature_measurements VALUES (DateTime('now'), 'entry', {left_temp:.2f}, {left_target:.2f}, {left_limithi:.2f}, {left_limitlo:.2f}, {right_temp:.2f}, {right_target:.2f}, {right_limithi:.2f}, {right_limitlo:.2f}, {left_tec_status:b}, {right_tec_status:b}, {left_tec_on_cd:b}, {right_tec_on_cd:b})")
+    cursor.execute(f"INSERT INTO temperature_measurements VALUES ('{now()}', 'entry', {left_temp:.2f}, {left_target:.2f}, {left_limithi:.2f}, {left_limitlo:.2f}, {right_temp:.2f}, {right_target:.2f}, {right_limithi:.2f}, {right_limitlo:.2f}, {left_tec_status:b}, {right_tec_status:b}, {left_tec_on_cd:b}, {right_tec_on_cd:b})")
     connection.commit()
     connection.close()
 
@@ -99,6 +102,7 @@ def default_params():
     }
     return params
 
+
 def clear_params():
     json_path = os.path.join(args.rundir, "settings.json")
     if os.path.exists(json_path):
@@ -106,6 +110,7 @@ def clear_params():
         log("successfully removed params file")
     else:
         log("params file does not exist, no change")
+
 
 def get_params():
     json_path = os.path.join(args.rundir, "settings.json")
@@ -217,8 +222,6 @@ if __name__ == "__main__":
                 right_last_switched = time.time()
                 right_tec.on()
                 right_tec_status = True
-
-        # TODO should we store if TEC are on CD?
 
         # TODO security: if aberrant temp, just set everything off and exit
 
