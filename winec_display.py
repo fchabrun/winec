@@ -30,8 +30,6 @@ if args.auto_debug and not os.path.exists(args.rundir):
 else:
     args.fake_data = False
 
-# TODO convert datetimes to text and use datetime.now() to fill in
-
 # TODO display radiators temp
 
 # TODO fix datetimes not matching
@@ -108,8 +106,10 @@ def db_get_measurements_(minutes):
     colnames = ["time", "event",
                 "left_temperature", "left_target", "left_limithi", "left_limitlo", "left_tec_status", "left_tec_on_cd",
                 "right_temperature", "right_target", "right_limithi", "right_limitlo", "right_tec_status", "right_tec_on_cd", ]
-    cursor.execute(
-        f"SELECT {', '.join(colnames)} FROM temperature_measurements WHERE time > DATETIME('now', '-{minutes} minute')")  # execute a simple SQL select query
+    # cursor.execute(f"SELECT {', '.join(colnames)} FROM temperature_measurements WHERE time > DATETIME('now', '-{minutes} minute')")  # execute a simple SQL select query
+    dt_start = (datetime.now() - timedelta(minutes=minutes)).strftime('%Y-%m-%d %H:%M:%S')
+    dt_end = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    cursor.execute(f"SELECT {', '.join(colnames)} FROM temperature_measurements WHERE time BETWEEN '{dt_start}' and '{dt_end}'")  # execute a simple SQL select query
     query_results = cursor.fetchall()
     connection.commit()
     connection.close()
