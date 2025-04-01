@@ -1,9 +1,9 @@
 import mariadb
 
-mariadb_host = '127.0.0.1'
+mariadb_host = 'localhost'
 mariadb_port = 3306
-mariadb_user = 'root'
-mariadb_password = None
+mariadb_user = 'cav'
+mariadb_password = 'caveavin'
 
 def init_db():
 
