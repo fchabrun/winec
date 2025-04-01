@@ -13,7 +13,6 @@ def init_db():
             port=mariadb_port,
             user=mariadb_user,
             passwd=mariadb_password,
-            use_pure=True
         )
     except mariadb.Error as err:
         print(f"Error connecting to MariaDB Platform: {e}")
