@@ -3,7 +3,7 @@ import mariadb
 mariadb_host = '127.0.0.1'
 mariadb_port = 3306
 mariadb_user = 'root'
-mariadb_password = ''
+mariadb_password = None
 
 def init_db():
 
