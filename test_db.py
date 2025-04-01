@@ -14,7 +14,7 @@ def init_db():
             user=mariadb_user,
             passwd=mariadb_password,
         )
-    except mariadb.Error as err:
+    except mariadb.Error as e:
         print(f"Error connecting to MariaDB Platform: {e}")
         return False
 
