@@ -101,7 +101,8 @@ def create_fake_measurements_(minutes):
 
 
 def db_get_measurements_mariadb(minutes):
-    engine = create_engine(f"mariadb:///?User={args.db_user}&;Password={args.db_password}&Database={args.db_database}&Server={args.db_host}&Port={args.db_port}")
+    engine = create_engine(f"mariadb+mariadbconnector://{args.db_user}:{args.db_password}@{args.db_host}:{args.db_port}/{args.db_database}")
+    # engine = create_engine(f"mariadb:///?User={args.db_user}&;Password={args.db_password}&Database={args.db_database}&Server={args.db_host}&Port={args.db_port}")
     dt_start = (datetime.now() - timedelta(minutes=minutes)).strftime('%Y-%m-%d %H:%M:%S')
     dt_end = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     output_data = pd.read_sql(f"SELECT * FROM temperature_measurements WHERE time BETWEEN '{dt_start}' and '{dt_end}'", engine)
