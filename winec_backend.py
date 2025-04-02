@@ -54,7 +54,7 @@ log(f"importing bmp180 library")
 from bmp180 import bmp180
 
 
-def run_db_query_mariadb(query):
+def run_db_query_mariadb(query, query_args=None):
 
     try:
         conn = mariadb.connect(
@@ -71,7 +71,10 @@ def run_db_query_mariadb(query):
     cur = conn.cursor()
 
     try:
-        cur.execute(query)
+        if query_args is None:
+            cur.execute(query)
+        else:
+            cur.execute(query, query_args)
     except mariadb.Error as e:
         print(f"Error executing query in MariaDB database: {e}")
         return False
@@ -92,33 +95,46 @@ def run_db_query_sqlite3(query):
     return True
 
 
-def run_db_query(query):
+def init_db():
     if args.db_platform == "sqlite3":
+        query = "CREATE TABLE IF NOT EXISTS temperature_measurements (time TEXT, event TEXT, left_temperature FLOAT, left_target FLOAT, left_limithi FLOAT, left_limitlo FLOAT, right_temperature FLOAT, right_target FLOAT, right_limithi FLOAT, right_limitlo FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN, left_tec_on_cd BOOLEAN, right_tec_on_cd BOOLEAN)"
         return run_db_query_sqlite3(query)
     if args.db_platform == "mariadb":
+        query = "CREATE TABLE IF NOT EXISTS temperature_measurements (time DATETIME, event TEXT, left_temperature FLOAT, left_target FLOAT, left_limithi FLOAT, left_limitlo FLOAT, right_temperature FLOAT, right_target FLOAT, right_limithi FLOAT, right_limitlo FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN, left_tec_on_cd BOOLEAN, right_tec_on_cd BOOLEAN)"
         return run_db_query_mariadb(query)
-
-
-def init_db():
-    query = "CREATE TABLE IF NOT EXISTS temperature_measurements (time TEXT, event TEXT, left_temperature FLOAT, left_target FLOAT, left_limithi FLOAT, left_limitlo FLOAT, right_temperature FLOAT, right_target FLOAT, right_limithi FLOAT, right_limitlo FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN, left_tec_on_cd BOOLEAN, right_tec_on_cd BOOLEAN)"
-    return run_db_query(query=query)
+    assert False, f"Unknown {args.db_platform=}"
 
 
 def clear_db():
-    query = "DROP TABLE IF EXISTS temperature_measurements"
-    return run_db_query(query=query)
+    if args.db_platform == "sqlite3":
+        query = "DROP TABLE IF EXISTS temperature_measurements"
+        return run_db_query_sqlite3(query)
+    if args.db_platform == "mariadb":
+        query = "DROP TABLE IF EXISTS temperature_measurements"
+        return run_db_query_mariadb(query)
+    assert False, f"Unknown {args.db_platform=}"
 
 
 def db_store_startup():
-    query = f"INSERT INTO temperature_measurements VALUES ('{now()}', 'startup', 0, 0, 0, 0, 0, 0, 0, 0, false, false, false, false)"
-    return run_db_query(query=query)
+    if args.db_platform == "sqlite3":
+        query = f"INSERT INTO temperature_measurements VALUES ('{now()}', 'startup', 0, 0, 0, 0, 0, 0, 0, 0, false, false, false, false)"
+        return run_db_query_sqlite3(query)
+    if args.db_platform == "mariadb":
+        query = f"INSERT INTO temperature_measurements (time, event, left_temperature, left_target, left_limithi, left_limitlo, right_temperature, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        query_args = (datetime.now(), 'startup', 0, 0, 0, 0, 0, 0, 0, 0, False, False, False, False)
+        return run_db_query_mariadb(query, query_args)
+    assert False, f"Unknown {args.db_platform=}"
 
 
 def db_store_measurements(left_temp, left_target, left_limithi, left_limitlo, right_temp, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd):
-    query = f"INSERT INTO temperature_measurements VALUES ('{now()}', 'entry', {left_temp:.2f}, {left_target:.2f}, {left_limithi:.2f}, {left_limitlo:.2f}, {right_temp:.2f}, {right_target:.2f}, {right_limithi:.2f}, {right_limitlo:.2f}, {left_tec_status:b}, {right_tec_status:b}, {left_tec_on_cd:b}, {right_tec_on_cd:b})"
-    return run_db_query(query=query)
-
-# TODO log
+    if args.db_platform == "sqlite3":
+        query = f"INSERT INTO temperature_measurements VALUES ('{now()}', 'entry', {left_temp:.2f}, {left_target:.2f}, {left_limithi:.2f}, {left_limitlo:.2f}, {right_temp:.2f}, {right_target:.2f}, {right_limithi:.2f}, {right_limitlo:.2f}, {left_tec_status:b}, {right_tec_status:b}, {left_tec_on_cd:b}, {right_tec_on_cd:b})"
+        return run_db_query_sqlite3(query)
+    if args.db_platform == "mariadb":
+        query = f"INSERT INTO temperature_measurements (time, event, left_temperature, left_target, left_limithi, left_limitlo, right_temperature, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        query_args = (datetime.now(), 'entry', left_temp, left_target, left_limithi, left_limitlo, right_temp, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd)
+        return run_db_query_mariadb(query, query_args)
+    assert False, f"Unknown {args.db_platform=}"
 
 
 # settings
