@@ -55,7 +55,6 @@ from bmp180 import bmp180
 
 
 def run_db_query_mariadb(query, query_args=None):
-
     try:
         conn = mariadb.connect(
             host=args.db_host,
@@ -79,6 +78,7 @@ def run_db_query_mariadb(query, query_args=None):
         print(f"Error executing query in MariaDB database: {e}")
         return False
 
+    conn.commit()
     conn.close()
     return True
 
