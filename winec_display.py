@@ -1,6 +1,5 @@
 import os
 import argparse
-import sqlite3
 import pandas as pd
 from dash import Dash, html, dcc, Input, Output, callback, State
 import dash_bootstrap_components as dbc
@@ -19,9 +18,15 @@ parser.add_argument("--dash_ip", default="192.168.1.13")
 parser.add_argument("--rundir", default="/home/cav/winec_rundir")
 parser.add_argument("--auto_debug", default=True)
 parser.add_argument("--fake_data", default=False)
+parser.add_argument("--db_platform", default="sqlite3")
+parser.add_argument("--db_host", default="localhost")
+parser.add_argument("--db_port", default=3306)
+parser.add_argument("--db_user", default="cav")
+parser.add_argument("--db_password", default="caveavin")
+parser.add_argument("--db_database", default="winec")
 args = parser.parse_args()
 
-args.auto_debug = args.auto_debug  is not None
+args.auto_debug = args.auto_debug is not None
 
 if args.auto_debug and not os.path.exists(args.rundir):
     args.dash_ip = "127.0.0.1"
@@ -29,6 +34,11 @@ if args.auto_debug and not os.path.exists(args.rundir):
     args.rundir = r"C:\Users\flori\OneDrive\Documents\winec_temp"
 else:
     args.fake_data = False
+
+if args.db_platform == "sqlite3":
+    import sqlite3
+elif args.db_platform == "mariadb":
+    from sqlalchemy import create_engine
 
 # TODO display radiators temp
 
@@ -89,12 +99,16 @@ def create_fake_measurements_(minutes):
                                 "right_tec_status": tec_statuses})
     return output_data
 
-# get temp/tec status measurements over the last X minutes, formatted as a pandas dataframe
-def db_get_measurements_(minutes):
-    # if set to debug: create fake data
-    if args.fake_data:
-        return create_fake_measurements_(minutes=minutes)
-    # the real function
+
+def db_get_measurements_mariadb(minutes):
+    engine = create_engine(f"mariadb:///?User={args.db_user}&;Password={args.db_password}&Database={args.db_database}&Server={args.db_host}&Port={args.db_port}")
+    dt_start = (datetime.now() - timedelta(minutes=minutes)).strftime('%Y-%m-%d %H:%M:%S')
+    dt_end = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    output_data = pd.read_sql(f"SELECT * FROM temperature_measurements WHERE time BETWEEN '{dt_start}' and '{dt_end}'", engine)
+    return output_data
+
+
+def db_get_measurements_sqlite3(minutes):
     connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"), timeout=10)
     cursor = connection.cursor()
     colnames = ["time", "event",
@@ -108,11 +122,28 @@ def db_get_measurements_(minutes):
     connection.commit()
     connection.close()
     output_data = pd.DataFrame(query_results, columns=colnames)
-    # format correctly
-    output_data.time = pd.to_datetime(output_data.time)
-    output_data = output_data.astype({"left_temperature": float, 'left_target': float, 'left_limithi': float, 'left_limitlo': float, 'left_tec_status': int, 'left_tec_on_cd': int,
-                                      'right_temperature': float, 'right_target': float, 'right_limithi': float, 'right_limitlo': float, 'right_tec_status': int, 'right_tec_on_cd': int})
+    return output_data
 
+
+
+# get temp/tec status measurements over the last X minutes, formatted as a pandas dataframe
+def db_get_measurements_(minutes):
+    # if set to debug: create fake data
+    if args.fake_data:
+        return create_fake_measurements_(minutes=minutes)
+    # the real function
+    output_data = None
+    if args.db_platform == "sqlite3":
+        output_data = db_get_measurements_sqlite3(minutes=minutes)
+    if args.db_platform == "mariadb":
+        output_data = db_get_measurements_mariadb(minutes=minutes)
+    # format correctly
+    if output_data is not None:
+        output_data.time = pd.to_datetime(output_data.time)
+        output_data = output_data.astype({"left_temperature": float, 'left_target': float, 'left_limithi': float, 'left_limitlo': float, 'left_tec_status': int, 'left_tec_on_cd': int,
+                                          'right_temperature': float, 'right_target': float, 'right_limithi': float, 'right_limitlo': float, 'right_tec_status': int, 'right_tec_on_cd': int})
+    else:
+        print(f"unable to retrieve db data: unknown {args.db_platform}")
     return output_data
 
 
