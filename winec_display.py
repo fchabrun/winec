@@ -153,9 +153,9 @@ def db_get_raw_measurements(minutes, df_buffer):
             df_buffer['minutes'] == minutes):
         return df_buffer['data']
     else:
-        data = db_get_measurements_(minutes=minutes)
         df_buffer["time"] = time.time()
         df_buffer["minutes"] = minutes
+        data = db_get_measurements_(minutes=minutes)
         df_buffer["data"] = data
         return data
 
