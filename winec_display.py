@@ -28,6 +28,15 @@ args = parser.parse_args()
 
 args.auto_debug = args.auto_debug is not None
 
+
+def now():
+    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+
+def log(s):
+    print(f"{now()}    {s}")
+
+
 if args.auto_debug and not os.path.exists(args.rundir):
     args.dash_ip = "127.0.0.1"
     # args.rundir = r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Research\Common"
@@ -130,6 +139,7 @@ def db_get_measurements_sqlite3(minutes):
 # get temp/tec status measurements over the last X minutes, formatted as a pandas dataframe
 def db_get_measurements_(minutes):
     # if set to debug: create fake data
+    log("retrieving up-to-date db data")
     if args.fake_data:
         return create_fake_measurements_(minutes=minutes)
     # the real function
