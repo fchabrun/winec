@@ -29,18 +29,8 @@ def read_temp():
         temp_f = temp_c * 9.0 / 5.0 + 32.0
         return temp_c, temp_f
 
-while True:
-    print(read_temp())
-    time.sleep(1)
-
-def read_temp_raw():
-	catdata = subprocess.Popen(['cat',device_file], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	out,err = catdata.communicate()
-	out_decode = out.decode('utf-8')
-	lines = out_decode.split('\n')
-	return lines
-
-deg_c, deg_f = read_temp()
-
-print(f"{deg_c=}")
-print(f"{deg_f=}")
+if __name__ == "__main__":
+    while True:
+        deg_c, deg_f = read_temp()
+        print(f"{deg_c=}")
+        print(f"{deg_f=}")
