@@ -1,9 +1,3 @@
- Download Project Bundle
- Copy Code
-# SPDX-FileCopyrightText: 2019 Mikey Sklar for Adafruit Industries
-#
-# SPDX-License-Identifier: MIT
-
 import glob
 import time
 
