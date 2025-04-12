@@ -26,7 +26,7 @@ def read_temp(ds18b20_addr, w1_rootdir, timeout=1.):
         if lines[0].strip()[-3:] == 'YES':
             break
         # else, wait a little bit and start again until timeout
-        time.sleep(0.2)
+        time.sleep(0.1)
     assert lines is not None, "Unable to read device file"
     assert len(lines) > 0, "Device file is empty"
 
@@ -53,7 +53,7 @@ if __name__ == "__main__":
             print(f"Unable to read temp_c1: {error=}")
         try:
             tstart = time.time()
-            temp_c2 = read_temp(ds18b20_addr=addr2, w1_rootdir=default_w1_rootdir, timeout=.1)
+            temp_c2 = read_temp(ds18b20_addr=addr2, w1_rootdir=default_w1_rootdir, timeout=1)
             tdur = time.time() - tstart
             print(f"{temp_c2=} acquired in {tdur:.1f} seconds")
         except Exception as error:
