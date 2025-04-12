@@ -45,12 +45,12 @@ if __name__ == "__main__":
     while True:
         # read temps
         try:
-            temp_c1 = read_temp_raw(ds18b20_addr=addr1, w1_rootdir=default_w1_rootdir)
+            temp_c1 = read_temp(ds18b20_addr=addr1, w1_rootdir=default_w1_rootdir)
             print(f"{temp_c1=}")
         except Exception as error:
             print(f"Unable to read temp_c1: {error=}")
         try:
-            temp_c2 = read_temp_raw(ds18b20_addr=addr2, w1_rootdir=default_w1_rootdir)
+            temp_c2 = read_temp(ds18b20_addr=addr2, w1_rootdir=default_w1_rootdir)
             print(f"{temp_c2=}")
         except Exception as error:
             print(f"Unable to read temp_c2: {error=}")
