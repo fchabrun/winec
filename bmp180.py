@@ -222,15 +222,13 @@ class bmp180:
 
 
 if __name__ == "__main__":
-    left_bmp = bmp180(1, 0x77)
-    print("Left sensor:")
-    print(left_bmp.get_temp())
-    print(left_bmp.get_pressure())
-    print(left_bmp.get_altitude())
-    
-    right_bmp = bmp180(4, 0x77)
-    print("Right sensor:")
-    print(right_bmp.get_temp())
-    print(right_bmp.get_pressure())
-    print(right_bmp.get_altitude())
+    for bus, address in zip((1, 4), (0x77, 0x77)):
+        print(f"reading sensor at {bus=} & {address=}")
+        try:
+            test_bmp = bmp180(bus, address=address)
+            print(f"    temp: {test_bmp.get_temp()}")
+            print(f"    pressure: {test_bmp.get_pressure()}")
+            print(f"    altitude: {test_bmp.get_altitude()}")
+        except Exception as error:
+            print(f"    unable to read sensor, {error=}")
 
