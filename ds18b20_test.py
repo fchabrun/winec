@@ -42,22 +42,13 @@ if __name__ == "__main__":
     addr1 = "000000bb35e7"
     addr2 = "000000bc51c5"
 
-    while True:
+    for address in (addr1, addr2):
         # read temps
+        print(f"reading temp_c at {address=}")
         try:
             tstart = time.time()
-            temp_c1 = read_temp(ds18b20_addr=addr1, w1_rootdir=default_w1_rootdir, timeout=.1)
+            temp_c = read_temp(ds18b20_addr=address, w1_rootdir=default_w1_rootdir, timeout=1)
             tdur = time.time() - tstart
-            print(f"{temp_c1=} acquired in {tdur:.1f} seconds")
+            print(f"    {temp_c=} acquired in {tdur:.1f} seconds")
         except Exception as error:
-            print(f"Unable to read temp_c1: {error=}")
-        try:
-            tstart = time.time()
-            temp_c2 = read_temp(ds18b20_addr=addr2, w1_rootdir=default_w1_rootdir, timeout=1)
-            tdur = time.time() - tstart
-            print(f"{temp_c2=} acquired in {tdur:.1f} seconds")
-        except Exception as error:
-            print(f"Unable to read temp_c2: {error=}")
-        # print
-        # wait until next read
-        time.sleep(2)
+            print(f"    unable to read, {error=}")
