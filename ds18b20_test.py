@@ -46,14 +46,14 @@ if __name__ == "__main__":
         # read temps
         try:
             tstart = time.time()
-            temp_c1 = read_temp(ds18b20_addr=addr1, w1_rootdir=default_w1_rootdir, timeout=.5)
+            temp_c1 = read_temp(ds18b20_addr=addr1, w1_rootdir=default_w1_rootdir, timeout=.1)
             tdur = time.time() - tstart
             print(f"{temp_c1=} acquired in {tdur:.1f} seconds")
         except Exception as error:
             print(f"Unable to read temp_c1: {error=}")
         try:
             tstart = time.time()
-            temp_c2 = read_temp(ds18b20_addr=addr2, w1_rootdir=default_w1_rootdir, timeout=.5)
+            temp_c2 = read_temp(ds18b20_addr=addr2, w1_rootdir=default_w1_rootdir, timeout=.1)
             tdur = time.time() - tstart
             print(f"{temp_c2=} acquired in {tdur:.1f} seconds")
         except Exception as error:
