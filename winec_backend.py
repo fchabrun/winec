@@ -62,6 +62,7 @@ log(f"appending {root_dir} to sys path")
 sys.path.append(root_dir)
 log(f"importing bmp180 library")
 from bmp180 import bmp180
+log(f"importing ds18b20 library")
 from ds18b20 import ds18b20
 
 
@@ -136,7 +137,7 @@ def db_store_startup():
         query = f"INSERT INTO temperature_measurements VALUES ('{now()}', 'startup', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, false, false, false)"
         return run_db_query_sqlite3(query)
     if args.db_platform == "mariadb":
-        query = f"INSERT INTO temperature_measurements (time, event, left_temperature, left_target, left_limithi, left_limitlo, left_heatsink_temperature, right_temperature, right_target, right_limithi, right_limitlo, right_heatsink_temperature, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        query = f"INSERT INTO temperature_measurements (time, event, left_temperature, left_target, left_limithi, left_limitlo, left_heatsink_temperature, right_temperature, right_target, right_limithi, right_limitlo, right_heatsink_temperature, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         query_args = (datetime.now(), 'startup', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, False, False, False, False)
         return run_db_query_mariadb(query, query_args)
     log(f"Unknown {args.db_platform=}")
@@ -151,7 +152,7 @@ def db_store_measurements(left_temp, left_target, left_limithi, left_limitlo, le
         query = f"INSERT INTO temperature_measurements VALUES ('{now()}', 'entry', {left_temp:.2f}, {left_target:.2f}, {left_limithi:.2f}, {left_limitlo:.2f}, {left_heatsink_temp:.2f}, {right_temp:.2f}, {right_target:.2f}, {right_limithi:.2f}, {right_limitlo:.2f}, {right_heatsink_temp:.2f}, {left_tec_status:b}, {right_tec_status:b}, {left_tec_on_cd:b}, {right_tec_on_cd:b})"
         return run_db_query_sqlite3(query)
     if args.db_platform == "mariadb":
-        query = f"INSERT INTO temperature_measurements (time, event, left_temperature, left_target, left_limithi, left_limitlo, left_heatsink_temperature, right_temperature, right_target, right_limithi, right_limitlo, right_heatsink_temperature, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        query = f"INSERT INTO temperature_measurements (time, event, left_temperature, left_target, left_limithi, left_limitlo, left_heatsink_temperature, right_temperature, right_target, right_limithi, right_limitlo, right_heatsink_temperature, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         query_args = (datetime.now(), 'entry', left_temp, left_target, left_limithi, left_limitlo, left_heatsink_temp, right_temp, right_target, right_limithi, right_limitlo, right_heatsink_temp, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd)
         return run_db_query_mariadb(query, query_args)
     log(f"Unknown {args.db_platform=}")
