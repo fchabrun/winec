@@ -157,11 +157,12 @@ def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, lim
 
     # make tec status values in the heatsink temp range
     tec_status_filter_on = tec_status == 1
-    tec_status[tec_status_filter_on] = max_sec_y
-    tec_status[~tec_status_filter_on] = min_sec_y
+    tec_status_cp = tec_status.copy()
+    tec_status_cp[tec_status_filter_on] = max_sec_y
+    tec_status_cp[~tec_status_filter_on] = min_sec_y
 
     # rework data for tec display
-    tec_status_time_rw, tec_status_onoff_rw = rework_onoff_with_times(time, tec_status)
+    tec_status_time_rw, tec_status_onoff_rw = rework_onoff_with_times(time, tec_status_cp)
     tec_cd_time_rw, tec_cd_onoff_rw = rework_onoff_with_times(time, tec_on_cd)
 
     # TEC status
