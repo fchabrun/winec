@@ -209,7 +209,7 @@ def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, lim
     # add startup times
     for startup_time in startup_times:
         fig.add_trace(
-            go.Scatter(x=[startup_time, startup_time], y=[0, 1], mode="lines", name="Startup",
+            go.Scatter(x=[startup_time, startup_time], y=[min_sec_y, max_sec_y], mode="lines", name="Startup",
                        line=dict(width=3, color='rgb(0,180,0)')),
             secondary_y=True,
         )
