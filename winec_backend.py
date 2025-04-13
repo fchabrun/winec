@@ -162,7 +162,7 @@ def db_store_measurements(left_temp, left_target, left_limithi, left_limitlo, le
 # settings
 def default_params():
     params = {
-        "loop_delay_seconds": 1,
+        "loop_delay_seconds": 10,
         "left": {
             "status": True,
             "target_temperature": 12.0,  # target temperature
