@@ -153,7 +153,7 @@ def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, lim
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
     # get secondary y axis height
-    min_sec_y, max_sec_y = min(heatsink_temperature), max(heatsink_temperature)
+    min_sec_y, max_sec_y = min(0, min(heatsink_temperature) - 1), max(100, max(heatsink_temperature) + 1)
 
     # make tec status values in the heatsink temp range
     tec_status_filter_on = tec_status == 1
