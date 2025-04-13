@@ -17,7 +17,6 @@ parser.add_argument("--port")
 parser.add_argument("--dash_ip", default="192.168.1.13")
 parser.add_argument("--rundir", default="/home/cav/winec_rundir")
 parser.add_argument("--auto_debug", default=True)
-parser.add_argument("--fake_data", default=False)
 parser.add_argument("--db_platform", default="mariadb")
 parser.add_argument("--db_host", default="localhost")
 parser.add_argument("--db_port", default=3306)
@@ -41,8 +40,6 @@ if args.auto_debug and not os.path.exists(args.rundir):
     args.dash_ip = "127.0.0.1"
     # args.rundir = r"C:\Users\flori\OneDrive - univ-angers.fr\Documents\Home\Research\Common"
     args.rundir = r"C:\Users\flori\OneDrive\Documents\winec_temp"
-else:
-    args.fake_data = False
 
 if args.db_platform == "sqlite3":
     import sqlite3
@@ -68,47 +65,6 @@ def save_params(params):
         json.dump(params, f, indent=4)
 
 
-def create_fake_measurements_(minutes):
-    rng = np.random.RandomState()
-    times = np.arange(0, minutes)
-    target = 12
-    limithi = target + 2
-    limitlo = target - 2
-    tini = (1 - (datetime.now().second / 60)) * (limithi - limitlo) + limitlo
-    temps = [tini, ]
-    tec_statuses = [1, ]
-    for _ in times[1:]:
-        temp_dec = .1
-        if len(tec_statuses) > 1:
-            temp_dec = temps[-1] - temps[-2]
-            temp_dec = temp_dec * 1.05
-            if temp_dec < 0:
-                temp_dec = .1
-        temp_dec += rng.normal(loc=.0, scale=.1)
-        if tec_statuses[-1] == 1:
-            temps.append(temps[-1] - temp_dec)
-        else:
-            temps.append(temps[-1] + temp_dec)
-        if (temps[-1] < limitlo) and (tec_statuses[-1] == 1):
-            tec_statuses.append(0)
-        elif (temps[-1] > limithi) and (tec_statuses[-1] == 0):
-            tec_statuses.append(1)
-        else:
-            tec_statuses.append(tec_statuses[-1])
-    output_data = pd.DataFrame({"time": [datetime.now() - timedelta(minutes=minutes - int(t)) for t in times],
-                                "left_temperature": temps,
-                                "left_target": np.repeat(target, len(times)),
-                                "left_limithi": np.repeat(limithi, len(times)),
-                                "left_limitlo": np.repeat(limitlo, len(times)),
-                                "left_tec_status": tec_statuses,
-                                "right_temperature": temps,
-                                "right_target": np.repeat(target, len(times)),
-                                "right_limithi": np.repeat(limithi, len(times)),
-                                "right_limitlo": np.repeat(limitlo, len(times)),
-                                "right_tec_status": tec_statuses})
-    return output_data
-
-
 def db_get_measurements_mariadb(minutes):
     engine = create_engine(f"mariadb+mariadbconnector://{args.db_user}:{args.db_password}@{args.db_host}:{args.db_port}/{args.db_database}")
     # engine = create_engine(f"mariadb:///?User={args.db_user}&;Password={args.db_password}&Database={args.db_database}&Server={args.db_host}&Port={args.db_port}")
@@ -122,8 +78,8 @@ def db_get_measurements_sqlite3(minutes):
     connection = sqlite3.connect(os.path.join(args.rundir, "winec_db_v1.db"), timeout=10)
     cursor = connection.cursor()
     colnames = ["time", "event",
-                "left_temperature", "left_target", "left_limithi", "left_limitlo", "left_tec_status", "left_tec_on_cd",
-                "right_temperature", "right_target", "right_limithi", "right_limitlo", "right_tec_status", "right_tec_on_cd", ]
+                "left_temperature", "left_target", "left_limithi", "left_limitlo", "left_heatsink_temperature", "left_tec_status", "left_tec_on_cd",
+                "right_temperature", "right_target", "right_limithi", "right_limitlo", "right_heatsink_temperature", "right_tec_status", "right_tec_on_cd", ]
     # cursor.execute(f"SELECT {', '.join(colnames)} FROM temperature_measurements WHERE time > DATETIME('now', '-{minutes} minute')")  # execute a simple SQL select query
     dt_start = (datetime.now() - timedelta(minutes=minutes)).strftime('%Y-%m-%d %H:%M:%S')
     dt_end = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -140,8 +96,6 @@ def db_get_measurements_sqlite3(minutes):
 def db_get_measurements_(minutes):
     # if set to debug: create fake data
     log("retrieving up-to-date db data")
-    if args.fake_data:
-        return create_fake_measurements_(minutes=minutes)
     # the real function
     output_data = None
     if args.db_platform == "sqlite3":
@@ -151,8 +105,8 @@ def db_get_measurements_(minutes):
     # format correctly
     if output_data is not None:
         output_data.time = pd.to_datetime(output_data.time)
-        output_data = output_data.astype({"left_temperature": float, 'left_target': float, 'left_limithi': float, 'left_limitlo': float, 'left_tec_status': int, 'left_tec_on_cd': int,
-                                          'right_temperature': float, 'right_target': float, 'right_limithi': float, 'right_limitlo': float, 'right_tec_status': int, 'right_tec_on_cd': int})
+        output_data = output_data.astype({"left_temperature": float, 'left_target': float, 'left_limithi': float, 'left_limitlo': float, 'left_heatsink_temperature': float, 'left_tec_status': int, 'left_tec_on_cd': int,
+                                          'right_temperature': float, 'right_target': float, 'right_limithi': float, 'right_limitlo': float, 'right_heatsink_temperature': float, 'right_tec_status': int, 'right_tec_on_cd': int})
     else:
         print(f"unable to retrieve db data: unknown {args.db_platform}")
     return output_data
@@ -192,8 +146,19 @@ def rework_onoff_with_times(time, onoff):
     return time_rw, onoff_rw
 
 
-def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status, tec_on_cd, startup_times):
+def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, limitlo, tec_status, tec_on_cd, startup_times):
+    if len(time) == 0:
+        return None
+
     fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # get secondary y axis height
+    min_sec_y, max_sec_y = min(heatsink_temperature), max(heatsink_temperature)
+
+    # make tec status values in the heatsink temp range
+    tec_status_filter_on = tec_status == 1
+    tec_status[tec_status_filter_on] = max_sec_y
+    tec_status[~tec_status_filter_on] = min_sec_y
 
     # rework data for tec display
     tec_status_time_rw, tec_status_onoff_rw = rework_onoff_with_times(time, tec_status)
@@ -234,6 +199,12 @@ def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status, tec_
         secondary_y=False,
     )
 
+    # Heatsink temperature measures
+    fig.add_trace(
+        go.Scatter(x=time, y=heatsink_temperature, name="Heatsink", line=dict(color='red')),
+        secondary_y=True,
+    )
+
     # add startup times
     for startup_time in startup_times:
         fig.add_trace(
@@ -251,13 +222,14 @@ def draw_main_grap(time, temperature, target, limithi, limitlo, tec_status, tec_
 
     # Set y-axes titles
     fig.update_yaxes(title_text="Temperature (°C)", range=(lower_temp_limit, upper_temp_limit), secondary_y=False)
-    fig.update_yaxes(title_text="TEC status", range=(-.01, 1.01), secondary_y=True)
+    fig.update_yaxes(title_text="Heatsink temperature (°C)", range=(min_sec_y, max_sec_y), secondary_y=True)
+    # fig.update_yaxes(title_text="TEC status", range=(-.01, 1.01), secondary_y=True)
 
-    fig.update_yaxes(
-        ticktext=["Off", "On"],
-        tickvals=[0, 1],
-        secondary_y=True,
-    )
+    # fig.update_yaxes(
+    #     ticktext=["Off", "On"],
+    #     tickvals=[0, 1],
+    #     secondary_y=True,
+    # )
 
     fig.update_layout(template="plotly_white", margin=dict(t=50, b=50))
 
@@ -561,7 +533,7 @@ def bes1(n, params_minutes):
 def update_graph_live_left(n, params_minutes):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     startup_entries = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer, events=["startup",])
-    fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.left_temperature,
+    fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.left_temperature, heatsink_temperature=latest_measurements.left_heatsink_temperature,
                          target=latest_measurements.left_target, limithi=latest_measurements.left_limithi,
                          limitlo=latest_measurements.left_limitlo, tec_status=latest_measurements.left_tec_status,
                          tec_on_cd=latest_measurements.left_tec_on_cd,
@@ -575,7 +547,7 @@ def update_graph_live_left(n, params_minutes):
 def update_graph_live_right(n, params_minutes):
     latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
     startup_entries = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer, events=["startup",])
-    fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.right_temperature,
+    fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.right_temperature, heatsink_temperature=latest_measurements.right_heatsink_temperature,
                          target=latest_measurements.right_target, limithi=latest_measurements.right_limithi,
                          limitlo=latest_measurements.right_limitlo, tec_status=latest_measurements.right_tec_status,
                          tec_on_cd=latest_measurements.right_tec_on_cd,

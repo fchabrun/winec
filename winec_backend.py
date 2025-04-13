@@ -13,6 +13,7 @@ parser.add_argument("--port")
 parser.add_argument("--clean_db")
 parser.add_argument("--clean_params")
 parser.add_argument("--rundir", default="/home/cav/winec_rundir")
+# sensors and actuators
 parser.add_argument("--left_bmp180_bus", default=1)
 parser.add_argument("--left_bmp180_address", default=0x77)
 parser.add_argument("--right_bmp180_bus", default=4)
@@ -20,14 +21,20 @@ parser.add_argument("--right_bmp180_address", default=0x77)
 parser.add_argument("--left_tec_gpio", default=22)
 parser.add_argument("--right_tec_gpio", default=23)
 parser.add_argument("--w1_rootdir", default='/sys/bus/w1/devices/')
-parser.add_argument("--left_heatsink_temp_address", default='000000bb35e7')
-parser.add_argument("--right_heatsink_temp_address", default='000000bc51c5')
+parser.add_argument("--left_heatsink_temp_address", default='000000bc51c5')
+parser.add_argument("--right_heatsink_temp_address", default='000000bb35e7')
+# db
 parser.add_argument("--db_platform", default="mariadb")
 parser.add_argument("--db_host", default="localhost")
 parser.add_argument("--db_port", default=3306)
 parser.add_argument("--db_user", default="cav")
 parser.add_argument("--db_password", default="caveavin")
 parser.add_argument("--db_database", default="winec")
+# security
+parser.add_argument("--bmp180_security_temp_lo", default=0)
+parser.add_argument("--bmp180_security_temp_hi", default=40)
+parser.add_argument("--heatsink_security_temp_lo", default=0)
+parser.add_argument("--heatsink_security_temp_hi", default=100)
 args = parser.parse_args()
 
 def now():
@@ -104,10 +111,10 @@ def run_db_query_sqlite3(query):
 
 def init_db():
     if args.db_platform == "sqlite3":
-        query = "CREATE TABLE IF NOT EXISTS temperature_measurements (time TEXT, event TEXT, left_temperature FLOAT, left_target FLOAT, left_limithi FLOAT, left_limitlo FLOAT, right_temperature FLOAT, right_target FLOAT, right_limithi FLOAT, right_limitlo FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN, left_tec_on_cd BOOLEAN, right_tec_on_cd BOOLEAN)"
+        query = "CREATE TABLE IF NOT EXISTS temperature_measurements (time TEXT, event TEXT, left_temperature FLOAT, left_target FLOAT, left_limithi FLOAT, left_limitlo FLOAT, left_heatsink_temperature FLOAT, right_temperature FLOAT, right_target FLOAT, right_limithi FLOAT, right_limitlo FLOAT, right_heatsink_temperature FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN, left_tec_on_cd BOOLEAN, right_tec_on_cd BOOLEAN)"
         return run_db_query_sqlite3(query)
     if args.db_platform == "mariadb":
-        query = "CREATE TABLE IF NOT EXISTS temperature_measurements (time DATETIME, event TEXT, left_temperature FLOAT, left_target FLOAT, left_limithi FLOAT, left_limitlo FLOAT, right_temperature FLOAT, right_target FLOAT, right_limithi FLOAT, right_limitlo FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN, left_tec_on_cd BOOLEAN, right_tec_on_cd BOOLEAN)"
+        query = "CREATE TABLE IF NOT EXISTS temperature_measurements (time DATETIME, event TEXT, left_temperature FLOAT, left_target FLOAT, left_limithi FLOAT, left_limitlo FLOAT, left_heatsink_temperature FLOAT, right_temperature FLOAT, right_target FLOAT, right_limithi FLOAT, right_limitlo FLOAT, right_heatsink_temperature FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN, left_tec_on_cd BOOLEAN, right_tec_on_cd BOOLEAN)"
         return run_db_query_mariadb(query)
     log(f"Unknown {args.db_platform=}")
     return False
@@ -126,23 +133,26 @@ def clear_db():
 
 def db_store_startup():
     if args.db_platform == "sqlite3":
-        query = f"INSERT INTO temperature_measurements VALUES ('{now()}', 'startup', 0, 0, 0, 0, 0, 0, 0, 0, false, false, false, false)"
+        query = f"INSERT INTO temperature_measurements VALUES ('{now()}', 'startup', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, false, false, false)"
         return run_db_query_sqlite3(query)
     if args.db_platform == "mariadb":
-        query = f"INSERT INTO temperature_measurements (time, event, left_temperature, left_target, left_limithi, left_limitlo, right_temperature, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        query_args = (datetime.now(), 'startup', 0, 0, 0, 0, 0, 0, 0, 0, False, False, False, False)
+        query = f"INSERT INTO temperature_measurements (time, event, left_temperature, left_target, left_limithi, left_limitlo, left_heatsink_temperature, right_temperature, right_target, right_limithi, right_limitlo, right_heatsink_temperature, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        query_args = (datetime.now(), 'startup', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, False, False, False, False)
         return run_db_query_mariadb(query, query_args)
     log(f"Unknown {args.db_platform=}")
     return False
 
 
-def db_store_measurements(left_temp, left_target, left_limithi, left_limitlo, right_temp, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd):
+def db_store_measurements(left_temp, left_target, left_limithi, left_limitlo, left_heatsink_temp, right_temp, right_target, right_limithi, right_limitlo, right_heatsink_temp, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd):
+    # TODO
+    left_heatsink_temp
+    right_heatsink_temp
     if args.db_platform == "sqlite3":
-        query = f"INSERT INTO temperature_measurements VALUES ('{now()}', 'entry', {left_temp:.2f}, {left_target:.2f}, {left_limithi:.2f}, {left_limitlo:.2f}, {right_temp:.2f}, {right_target:.2f}, {right_limithi:.2f}, {right_limitlo:.2f}, {left_tec_status:b}, {right_tec_status:b}, {left_tec_on_cd:b}, {right_tec_on_cd:b})"
+        query = f"INSERT INTO temperature_measurements VALUES ('{now()}', 'entry', {left_temp:.2f}, {left_target:.2f}, {left_limithi:.2f}, {left_limitlo:.2f}, {left_heatsink_temp:.2f}, {right_temp:.2f}, {right_target:.2f}, {right_limithi:.2f}, {right_limitlo:.2f}, {right_heatsink_temp:.2f}, {left_tec_status:b}, {right_tec_status:b}, {left_tec_on_cd:b}, {right_tec_on_cd:b})"
         return run_db_query_sqlite3(query)
     if args.db_platform == "mariadb":
-        query = f"INSERT INTO temperature_measurements (time, event, left_temperature, left_target, left_limithi, left_limitlo, right_temperature, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        query_args = (datetime.now(), 'entry', left_temp, left_target, left_limithi, left_limitlo, right_temp, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd)
+        query = f"INSERT INTO temperature_measurements (time, event, left_temperature, left_target, left_limithi, left_limitlo, left_heatsink_temperature, right_temperature, right_target, right_limithi, right_limitlo, right_heatsink_temperature, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        query_args = (datetime.now(), 'entry', left_temp, left_target, left_limithi, left_limitlo, left_heatsink_temp, right_temp, right_target, right_limithi, right_limitlo, right_heatsink_temp, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd)
         return run_db_query_mariadb(query, query_args)
     log(f"Unknown {args.db_platform=}")
     return False
@@ -212,39 +222,62 @@ def get_current_temperatures():
         log("unable to retrieve right sensor measurement")
         log(f"{error=}")
     return left_temp, right_temp
-    
-    
-def init_tec(pin):
-    log(f"initializing tec at gpio {pin=}")
-    tec = None
-    try:
-        tec = LED(pin)
-        tec.off()
-    except Exception as error:
-        log("unable to initialize tec at gpio")
-        log(f"{error=}")
-    return tec
 
 
-def tec_on_cd(tec_status, last_switched, tec_cooldown):
-    if tec_status:
-        return False
-    if last_switched is None:
-        return False
-    return time.time() - last_switched < tec_cooldown
+class tec_instance():
+    def __init__(self, pin):
+        self.pin = pin
+        self.tec = None
+        self.status = False
+        self.last_switched = None
+
+    def initialize(self):
+        log(f"initializing tec at gpio {self.pin=}")
+        self.tec = None
+        try:
+            self.tec = LED(self.pin)
+            self.tec.off()
+        except Exception as error:
+            self.tec = None
+            log("unable to initialize tec")
+            log(f"{error=}")
+
+    def turn(self, onoff):
+        if self.tec is not None:
+            if onoff:
+                self.tec.on()
+            else:
+                self.tec.off()
+        else:
+            log("unable to turn tec on/off: not initialized")
+        self.status = onoff
+        if not self.status:  # tec was turned off: run cooldown
+            self.last_switched = time.time()
+
+    def turn_on(self):
+        self.turn(onoff=True)
+
+    def turn_off(self):
+        self.turn(onoff=False)
+
+    def running(self):
+        return self.tec is not None
+
+    def on_cd(self, cooldown):
+        if self.status:
+            return False
+        if self.last_switched is None:
+            return False
+        return time.time() - self.last_switched < cooldown
 
 
-SECURITY_LO_TEMP = 0
-SECURITY_HI_TEMP = 40
-
-
-def security_shutdown(left_tec, right_tec):
+def security_shutdown(sd_left_tec_instance, sd_right_tec_instance):
     success = False
     log("running security shutdown")
     while not success:
         try:
-            left_tec.off()
-            right_tec.off()
+            sd_left_tec_instance.turn_off()
+            sd_right_tec_instance.turn_off()
             success = True
         except Exception as error:
             log("unable to run security shutdown, retrying in 1 second")
@@ -252,7 +285,6 @@ def security_shutdown(left_tec, right_tec):
             time.sleep(1)
             continue
     log("successfully executed security shutdown")
-    return False, False
 
 
 if __name__ == "__main__":
@@ -282,26 +314,24 @@ if __name__ == "__main__":
         log("unable to log startup entry into database")
     
     # init actuators (tecs)
-    left_tec, right_tec = None, None
-    while left_tec is None:
-        left_tec = init_tec(args.left_tec_gpio)
-        if left_tec is not None:
+    left_tec_instance = tec_instance(args.left_tec_gpio)
+    right_tec_instance = tec_instance(args.right_tec_gpio)
+    while True:
+        left_tec_instance.initialize()
+        if left_tec_instance.running():
             break
         else:
             log(f"unable to initialize left tec at {args.left_tec_gpio=}, retrying in 5 seconds")
         time.sleep(5)
     log(f"successfully intialized left tec at {args.left_tec_gpio=}")
-    while right_tec is None:
-        right_tec = init_tec(args.right_tec_gpio)
-        if right_tec is not None:
+    while True:
+        right_tec_instance.initialize()
+        if right_tec_instance.running():
             break
         else:
             log(f"unable to initialize right tec at {args.right_tec_gpio=}, retrying in 5 seconds")
         time.sleep(5)
     log(f"successfully intialized right tec at {args.right_tec_gpio=}")
-    left_tec_status = False
-    right_tec_status = False
-    left_last_switched, right_last_switched = None, None
 
     # init heatsink tmp sensors
     left_heatsink_ds18b20 = ds18b20(address=args.left_heatsink_address, rootdir=args.w1_rootdir)
@@ -355,66 +385,84 @@ if __name__ == "__main__":
         left_temp, right_temp = get_current_temperatures()
         if (left_temp is None) or (right_temp is  None):  # problem retrieving temperatures: security shutdown
             log("unable to retrieve temperatures")
-            left_tec_status, right_tec_status = security_shutdown(left_tec, right_tec)
+            security_shutdown(left_tec_instance, right_tec_instance)
 
-        if (left_temp < SECURITY_LO_TEMP) or (left_temp > SECURITY_HI_TEMP):
+        if (left_temp < args.bmp180_security_temp_lo) or (left_temp > args.bmp180_security_temp_hi):
             log(f"inconsistent {left_temp=}")
-            left_tec_status, right_tec_status = security_shutdown(left_tec, right_tec)
+            security_shutdown(left_tec_instance, right_tec_instance)
 
-        if (right_temp < SECURITY_LO_TEMP) or (right_temp > SECURITY_HI_TEMP):
+        if (right_temp < args.bmp180_security_temp_lo) or (right_temp > args.bmp180_security_temp_hi):
             log(f"inconsistent {right_temp=}")
-            left_tec_status, right_tec_status = security_shutdown(left_tec, right_tec)
+            security_shutdown(left_tec_instance, right_tec_instance)
 
         # get heatsink temperature measurements
-        # TODO
+        left_heatsink_temp, right_heatsink_temp = None, None
+        try:
+            left_heatsink_temp = left_heatsink_ds18b20.read_temp()
+        except Exception as error:
+            log("unable to read left heatsink temperature")
+            log(f"{error=}")
+        try:
+            right_heatsink_temp = right_heatsink_ds18b20.read_temp()
+        except Exception as error:
+            log("unable to read right heatsink temperature")
+            log(f"{error=}")
+        # turn tecs off if temperatures are too low (inconsistent?) or high (too hot!)
+        if (left_heatsink_temp is None) or (right_heatsink_temp is None):
+            security_shutdown(left_tec_instance, right_tec_instance)
+        else:
+            if left_heatsink_temp < args.heatsink_security_temp_lo:
+                log(f"reached too low left heatsink temperature {left_heatsink_temp=}, shutting down left tec")
+                left_tec_instance.turn_off()
+            elif left_heatsink_temp > args.heatsink_security_temp_hi:
+                log(f"reached too high left heatsink temperature {left_heatsink_temp=}, shutting down left tec")
+                left_tec_instance.turn_off()
+            if right_heatsink_temp < args.heatsink_security_temp_lo:
+                log(f"reached too low left heatsink temperature {right_heatsink_temp=}, shutting down left tec")
+                right_tec_instance.turn_off()
+            elif right_heatsink_temp > args.heatsink_security_temp_hi:
+                log(f"reached too high left heatsink temperature {right_heatsink_temp=}, shutting down left tec")
+                right_tec_instance.turn_off()
 
         # store new temperature measurements
         query_status = db_store_measurements(left_temp, params["left"]["target_temperature"], params["left"]["target_temperature"] + params["left"]["temperature_deviation"], params["left"]["target_temperature"] - params["left"]["temperature_deviation"],
+                                             left_heatsink_temp,
                                              right_temp, params["right"]["target_temperature"], params["right"]["target_temperature"] + params["right"]["temperature_deviation"], params["right"]["target_temperature"] - params["right"]["temperature_deviation"],
-                                             left_tec_status, right_tec_status,
-                                             tec_on_cd(tec_status=left_tec_status, last_switched=left_last_switched, tec_cooldown=params["left"]["tec_cooldown_seconds"]),
-                                             tec_on_cd(tec_status=right_tec_status, last_switched=right_last_switched, tec_cooldown=params["right"]["tec_cooldown_seconds"]))
+                                             right_heatsink_temp,
+                                             left_tec_instance.status, right_tec_instance.status,
+                                             left_tec_instance.on_cd(params["left"]["tec_cooldown_seconds"]),
+                                             right_tec_instance.on_cd(params["right"]["tec_cooldown_seconds"]))
         if not query_status:
             log("unable to store measurements in database")
 
         # decide if tec has to go on or off
         # log("measurement-based decision")
         try:
-            if (left_tec_status) & (left_temp < (params["left"]["target_temperature"] - params["left"]["temperature_deviation"])):
+            if left_tec_instance.status & (left_temp < (params["left"]["target_temperature"] - params["left"]["temperature_deviation"])):
                 # turn off and store
                 log("turning left tec off")
-                left_tec.off()
-                left_tec_status = False
-                left_last_switched = time.time()
-            elif (not left_tec_status) & (left_temp > (params["left"]["target_temperature"] + params["left"]["temperature_deviation"])):
+                left_tec_instance.turn_off()
+            elif (not left_tec_instance.status) & (left_temp > (params["left"]["target_temperature"] + params["left"]["temperature_deviation"])):
                 # before turning on, checked that the CD is off
-                if (left_last_switched is None) or (time.time() - left_last_switched > params["left"]["tec_cooldown_seconds"]):
+                if not left_tec_instance.on_cd(params["left"]["tec_cooldown_seconds"]):
                     # turn on and store
                     log("turning left tec on")
-                    left_last_switched = time.time()
-                    left_tec.on()
-                    left_tec_status = True
+                    left_tec_instance.turn_on()
             # also for right
-            if (right_tec_status) & (right_temp < (params["right"]["target_temperature"] - params["right"]["temperature_deviation"])):
+            if right_tec_instance.status & (right_temp < (params["right"]["target_temperature"] - params["right"]["temperature_deviation"])):
                 # turn off and store
                 log("turning right tec off")
-                right_tec.off()
-                right_tec_status = False
-                right_last_switched = time.time()
-            elif (not right_tec_status) & (right_temp > (params["right"]["target_temperature"] + params["right"]["temperature_deviation"])):
+                right_tec_instance.turn_off()
+            elif (not right_tec_instance.status) & (right_temp > (params["right"]["target_temperature"] + params["right"]["temperature_deviation"])):
                 # before turning on, checked that the CD is off
-                if (right_last_switched is None) or (time.time() - right_last_switched > params["right"]["tec_cooldown_seconds"]):
+                if not right_tec_instance.on_cd(params["right"]["tec_cooldown_seconds"]):
                     # turn on and store
                     log("turning right tec on")
-                    right_last_switched = time.time()
-                    right_tec.on()
-                    right_tec_status = True
+                    right_tec_instance.turn_on()
         except Exception as error:
             log("error during temp-based tec decision")
             log(f"{error=}")
-            left_tec_status, right_tec_status = security_shutdown(left_tec=left_tec, right_tec=right_tec)
-
-        # TODO security: measure radiators temperature and emergency shutdown if abnormal
+            security_shutdown(left_tec_instance, right_tec_instance)
 
         # wait until next cycle
         # log(f"going to sleep for {params['loop_delay_seconds']} seconds")
