@@ -19,6 +19,9 @@ parser.add_argument("--right_bmp180_bus", default=4)
 parser.add_argument("--right_bmp180_address", default=0x77)
 parser.add_argument("--left_tec_gpio", default=22)
 parser.add_argument("--right_tec_gpio", default=23)
+parser.add_argument("--w1_rootdir", default='/sys/bus/w1/devices/')
+parser.add_argument("--left_heatsink_temp_address", default='000000bb35e7')
+parser.add_argument("--right_heatsink_temp_address", default='000000bc51c5')
 parser.add_argument("--db_platform", default="mariadb")
 parser.add_argument("--db_host", default="localhost")
 parser.add_argument("--db_port", default=3306)
@@ -35,7 +38,7 @@ def log(s):
     print(f"{now()}    {s}")
 
 
-print(f"running at {args.rundir}")
+log(f"running at {args.rundir}")
 
 os.makedirs(args.rundir, exist_ok=True)
 log(f"running at {args.rundir}")
@@ -52,6 +55,7 @@ log(f"appending {root_dir} to sys path")
 sys.path.append(root_dir)
 log(f"importing bmp180 library")
 from bmp180 import bmp180
+from ds18b20 import ds18b20
 
 
 def run_db_query_mariadb(query, query_args=None):
@@ -63,8 +67,9 @@ def run_db_query_mariadb(query, query_args=None):
             passwd=args.db_password,
             database=args.db_database
         )
-    except mariadb.Error as e:
-        print(f"Error connecting to MariaDB Platform: {e}")
+    except mariadb.Error as error:
+        log("Error connecting to MariaDB Platform")
+        log(f"{error=}")
         return False
 
     cur = conn.cursor()
@@ -74,8 +79,9 @@ def run_db_query_mariadb(query, query_args=None):
             cur.execute(query)
         else:
             cur.execute(query, query_args)
-    except mariadb.Error as e:
-        print(f"Error executing query in MariaDB database: {e}")
+    except mariadb.Error as error:
+        log("Error executing query in MariaDB database")
+        log(f"{error=}")
         return False
 
     conn.commit()
@@ -90,7 +96,8 @@ def run_db_query_sqlite3(query):
         cursor.execute(query)
         connection.commit()
         connection.close()
-    except:
+    except Exception as error:
+        log(f"{error=}")
         return False
     return True
 
@@ -102,7 +109,8 @@ def init_db():
     if args.db_platform == "mariadb":
         query = "CREATE TABLE IF NOT EXISTS temperature_measurements (time DATETIME, event TEXT, left_temperature FLOAT, left_target FLOAT, left_limithi FLOAT, left_limitlo FLOAT, right_temperature FLOAT, right_target FLOAT, right_limithi FLOAT, right_limitlo FLOAT, left_tec_status BOOLEAN, right_tec_status BOOLEAN, left_tec_on_cd BOOLEAN, right_tec_on_cd BOOLEAN)"
         return run_db_query_mariadb(query)
-    assert False, f"Unknown {args.db_platform=}"
+    log(f"Unknown {args.db_platform=}")
+    return False
 
 
 def clear_db():
@@ -112,7 +120,8 @@ def clear_db():
     if args.db_platform == "mariadb":
         query = "DROP TABLE IF EXISTS temperature_measurements"
         return run_db_query_mariadb(query)
-    assert False, f"Unknown {args.db_platform=}"
+    log(f"Unknown {args.db_platform=}")
+    return False
 
 
 def db_store_startup():
@@ -123,7 +132,8 @@ def db_store_startup():
         query = f"INSERT INTO temperature_measurements (time, event, left_temperature, left_target, left_limithi, left_limitlo, right_temperature, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         query_args = (datetime.now(), 'startup', 0, 0, 0, 0, 0, 0, 0, 0, False, False, False, False)
         return run_db_query_mariadb(query, query_args)
-    assert False, f"Unknown {args.db_platform=}"
+    log(f"Unknown {args.db_platform=}")
+    return False
 
 
 def db_store_measurements(left_temp, left_target, left_limithi, left_limitlo, right_temp, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd):
@@ -134,7 +144,8 @@ def db_store_measurements(left_temp, left_target, left_limithi, left_limitlo, ri
         query = f"INSERT INTO temperature_measurements (time, event, left_temperature, left_target, left_limithi, left_limitlo, right_temperature, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         query_args = (datetime.now(), 'entry', left_temp, left_target, left_limithi, left_limitlo, right_temp, right_target, right_limithi, right_limitlo, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd)
         return run_db_query_mariadb(query, query_args)
-    assert False, f"Unknown {args.db_platform=}"
+    log(f"Unknown {args.db_platform=}")
+    return False
 
 
 # settings
@@ -172,15 +183,17 @@ def get_params():
     try:
         with open(json_path, "r") as f:
             params = json.load(f)
-    except:
+    except Exception as error:
         log(f"no params found at path {json_path}, loading defaults")
+        log(f"{error=}")
         params = default_params()
         try:
             with open(json_path, "w") as f:
                 json.dump(params, f, indent=4)
             log(f"saved params to json at path {json_path}")
-        except:
+        except Exception as error:
             log(f"could not save params to json at path {json_path}")
+            log(f"{error=}")
     return params
 
 
@@ -190,12 +203,14 @@ def get_current_temperatures():
     left_temp, right_temp = None, None
     try:
         left_temp = left_bmp.get_temp()
-    except:
+    except Exception as error:
         log("unable to retrieve left sensor measurement")
+        log(f"{error=}")
     try:
         right_temp = right_bmp.get_temp()
-    except:
+    except Exception as error:
         log("unable to retrieve right sensor measurement")
+        log(f"{error=}")
     return left_temp, right_temp
     
     
@@ -205,8 +220,9 @@ def init_tec(pin):
     try:
         tec = LED(pin)
         tec.off()
-    except:
+    except Exception as error:
         log("unable to initialize tec at gpio")
+        log(f"{error=}")
     return tec
 
 
@@ -229,14 +245,14 @@ def security_shutdown(left_tec, right_tec):
         try:
             left_tec.off()
             right_tec.off()
-            left_tec_status = False
-            right_tec_status = False
             success = True
-        except:
+        except Exception as error:
             log("unable to run security shutdown, retrying in 1 second")
+            log(f"{error=}")
             time.sleep(1)
             continue
     log("successfully executed security shutdown")
+    return False, False
 
 
 if __name__ == "__main__":
@@ -287,10 +303,17 @@ if __name__ == "__main__":
     right_tec_status = False
     left_last_switched, right_last_switched = None, None
 
+    # init heatsink tmp sensors
+    left_heatsink_ds18b20 = ds18b20(address=args.left_heatsink_address, rootdir=args.w1_rootdir)
+    right_heatsink_ds18b20 = ds18b20(address=args.right_heatsink_temp_address, rootdir=args.w1_rootdir)
+
     # init sensors
     left_bmp, right_bmp = None, None
     while left_bmp is None:
-        left_bmp = bmp180(args.left_bmp180_bus, args.left_bmp180_address)
+        try:
+            left_bmp = bmp180(args.left_bmp180_bus, args.left_bmp180_address)
+        except Exception as error:
+            log(f"{error=}")
         if left_bmp is not None:
             break
         else:
@@ -298,7 +321,10 @@ if __name__ == "__main__":
         time.sleep(5)
     log(f"successfully intialized left bmp with {args.left_bmp180_bus=} and {args.left_bmp180_address=}")
     while right_bmp is None:
-        right_bmp = bmp180(args.right_bmp180_bus, args.right_bmp180_address)
+        try:
+            right_bmp = bmp180(args.right_bmp180_bus, args.right_bmp180_address)
+        except Exception as error:
+            log(f"{error=}")
         if right_bmp is not None:
             break
         else:
@@ -329,15 +355,18 @@ if __name__ == "__main__":
         left_temp, right_temp = get_current_temperatures()
         if (left_temp is None) or (right_temp is  None):  # problem retrieving temperatures: security shutdown
             log("unable to retrieve temperatures")
-            security_shutdown(left_tec, right_tec)
+            left_tec_status, right_tec_status = security_shutdown(left_tec, right_tec)
 
         if (left_temp < SECURITY_LO_TEMP) or (left_temp > SECURITY_HI_TEMP):
             log(f"inconsistent {left_temp=}")
-            security_shutdown(left_tec, right_tec)
+            left_tec_status, right_tec_status = security_shutdown(left_tec, right_tec)
 
         if (right_temp < SECURITY_LO_TEMP) or (right_temp > SECURITY_HI_TEMP):
             log(f"inconsistent {right_temp=}")
-            security_shutdown(left_tec, right_tec)
+            left_tec_status, right_tec_status = security_shutdown(left_tec, right_tec)
+
+        # get heatsink temperature measurements
+        # TODO
 
         # store new temperature measurements
         query_status = db_store_measurements(left_temp, params["left"]["target_temperature"], params["left"]["target_temperature"] + params["left"]["temperature_deviation"], params["left"]["target_temperature"] - params["left"]["temperature_deviation"],
@@ -380,9 +409,10 @@ if __name__ == "__main__":
                     right_last_switched = time.time()
                     right_tec.on()
                     right_tec_status = True
-        except:
+        except Exception as error:
             log("error during temp-based tec decision")
-            security_shutdown(left_tec=left_tec, right_tec=right_tec)
+            log(f"{error=}")
+            left_tec_status, right_tec_status = security_shutdown(left_tec=left_tec, right_tec=right_tec)
 
         # TODO security: measure radiators temperature and emergency shutdown if abnormal
 
