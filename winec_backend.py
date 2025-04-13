@@ -334,7 +334,7 @@ if __name__ == "__main__":
     log(f"successfully intialized right tec at {args.right_tec_gpio=}")
 
     # init heatsink tmp sensors
-    left_heatsink_ds18b20 = ds18b20(address=args.left_heatsink_address, rootdir=args.w1_rootdir)
+    left_heatsink_ds18b20 = ds18b20(address=args.left_heatsink_temp_address, rootdir=args.w1_rootdir)
     right_heatsink_ds18b20 = ds18b20(address=args.right_heatsink_temp_address, rootdir=args.w1_rootdir)
 
     # init sensors
