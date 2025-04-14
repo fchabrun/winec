@@ -46,13 +46,10 @@ if args.db_platform == "sqlite3":
 elif args.db_platform == "mariadb":
     from sqlalchemy import create_engine
 
-# TODO display radiators temp
-
-df_buffer = {'time': None, 'data': None, 'minutes': None}
-df_refresh_delay = 5  # refresh at most every 5 seconds
+db_refresh_delay = 5  # refresh at most every 5 seconds
 
 
-def load_params():
+def load_params_():
     json_path = os.path.join(args.rundir, "settings.json")
     with open(json_path, "r") as f:
         params = json.load(f)
@@ -93,7 +90,7 @@ def db_get_measurements_sqlite3(minutes):
 
 
 # get temp/tec status measurements over the last X minutes, formatted as a pandas dataframe
-def db_get_measurements_(minutes):
+def fetch_db(minutes):
     # if set to debug: create fake data
     log("retrieving up-to-date db data")
     # the real function
@@ -112,21 +109,8 @@ def db_get_measurements_(minutes):
     return output_data
 
 
-def db_get_raw_measurements(minutes, df_buffer):
-    if (df_buffer["data"] is not None) and ((time.time() - df_buffer['time']) < df_refresh_delay) and (
-            df_buffer['minutes'] == minutes):
-        return df_buffer['data']
-    else:
-        df_buffer["time"] = time.time()
-        df_buffer["minutes"] = minutes
-        data = db_get_measurements_(minutes=minutes)
-        df_buffer["data"] = data
-        return data
-
-
-def db_get_measurements(minutes, df_buffer, events=["entry", ]):
-    raw_data = db_get_raw_measurements(minutes=minutes, df_buffer=df_buffer)
-    return raw_data[raw_data.event.isin(events)]
+def get_db_subset(db_extract: pd.DataFrame, events: list = ("entry", )):
+    return db_extract[db_extract.event.isin(events)]
 
 
 app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -365,7 +349,7 @@ content = html.Div(
         ], id='right-div', style={'width': '100%', 'display': 'inline-block'}),
         dcc.Interval(
             id='interval-component',
-            interval=df_refresh_delay * 1000,  # in milliseconds
+            interval=db_refresh_delay * 1000,  # in milliseconds
             n_intervals=0
         ),
     ], id="page-content", style=CONTENT_STYLE
@@ -381,83 +365,30 @@ app.layout = html.Div(
 
 @callback(
     Output('set-cycle-length', 'value'),
-    Input('json-load', 'n_clicks')
-)
-def set_cycle_length(n_clicks):
-    params = load_params()
-    return params['loop_delay_seconds']
-
-
-@callback(
     Output('set-left-status', 'value'),
-    Input('json-load', 'n_clicks')
-)
-def set_left_status(n_clicks):
-    params = load_params()
-    return 'ON' if params['left']['status'] else 'OFF'
-
-
-@callback(
     Output('set-left-target-temp', 'value'),
-    Input('json-load', 'n_clicks')
-)
-def set_left_ttemp(n_clicks):
-    params = load_params()
-    return params['left']['target_temperature']
-
-
-@callback(
     Output('set-left-temperature-deviation', 'value'),
-    Input('json-load', 'n_clicks')
-)
-def set_left_tdev(n_clicks):
-    params = load_params()
-    return params['left']['temperature_deviation']
-
-
-@callback(
     Output('set-left-tec-cooldown', 'value'),
-    Input('json-load', 'n_clicks')
-)
-def set_left_tdev(n_clicks):
-    params = load_params()
-    return params['left']['tec_cooldown_seconds']
-
-
-@callback(
     Output('set-right-status', 'value'),
-    Input('json-load', 'n_clicks')
-)
-def set_right_status(n_clicks):
-    params = load_params()
-    return 'ON' if params['right']['status'] else 'OFF'
-
-
-@callback(
     Output('set-right-target-temp', 'value'),
-    Input('json-load', 'n_clicks')
-)
-def set_right_ttemp(n_clicks):
-    params = load_params()
-    return params['right']['target_temperature']
-
-
-@callback(
     Output('set-right-temperature-deviation', 'value'),
-    Input('json-load', 'n_clicks')
-)
-def set_right_tdev(n_clicks):
-    params = load_params()
-    return params['right']['temperature_deviation']
-
-
-@callback(
     Output('set-right-tec-cooldown', 'value'),
     Input('json-load', 'n_clicks')
 )
-def set_right_teccd(n_clicks):
-    params = load_params()
-    return params['right']['tec_cooldown_seconds']
+def set_cycle_length(n_clicks):
+    params = load_params_()
+    return (
+        params['loop_delay_seconds'],
+        'ON' if params['left']['status'] else 'OFF',
+        params['left']['target_temperature'],
+        params['left']['temperature_deviation'],
+        params['left']['tec_cooldown_seconds'],
+        'ON' if params['right']['status'] else 'OFF',
+        params['right']['target_temperature'],
+        params['right']['temperature_deviation'],
+        params['right']['tec_cooldown_seconds'],
+
+    )
 
 
 @callback(
@@ -514,106 +445,13 @@ def update_output(n_clicks, cycle_len, left_status, left_ttemp, left_tempdev, le
     return "Saved"
 
 
-@callback(Output('current-backend-status', 'children'),
-          Input('interval-component', 'n_intervals'),
-          Input('display-length-slider', 'value'))
-def bes1(n, params_minutes):
-    # load last db entry and check last seen time
-    latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
-    seen_last_since = (datetime.now() - latest_measurements.time.tolist()[-1]) / timedelta(seconds=1)
-    # time out is cycle length + 5 seconds tolerance
-    params = load_params()
-    timeout_time = params["loop_delay_seconds"] + 5
-    backend_status = "ALIVE" if seen_last_since < timeout_time else "AWOL"
-    return f"Backend status is currently: {backend_status} (refreshed {seen_last_since:.0f} seconds ago)"
-
-
-@callback(Output('live-update-graph-left', 'figure'),
-          Input('interval-component', 'n_intervals'),
-          Input('display-length-slider', 'value'))
-def update_graph_live_left(n, params_minutes):
-    latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
-    startup_entries = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer, events=["startup",])
-    fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.left_temperature, heatsink_temperature=latest_measurements.left_heatsink_temperature,
-                         target=latest_measurements.left_target, limithi=latest_measurements.left_limithi,
-                         limitlo=latest_measurements.left_limitlo, tec_status=latest_measurements.left_tec_status,
-                         tec_on_cd=latest_measurements.left_tec_on_cd,
-                         startup_times=startup_entries.time)
-    return fig
-
-
-@callback(Output('live-update-graph-right', 'figure'),
-          Input('interval-component', 'n_intervals'),
-          Input('display-length-slider', 'value'))
-def update_graph_live_right(n, params_minutes):
-    latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
-    startup_entries = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer, events=["startup",])
-    fig = draw_main_grap(time=latest_measurements.time, temperature=latest_measurements.right_temperature, heatsink_temperature=latest_measurements.right_heatsink_temperature,
-                         target=latest_measurements.right_target, limithi=latest_measurements.right_limithi,
-                         limitlo=latest_measurements.right_limitlo, tec_status=latest_measurements.right_tec_status,
-                         tec_on_cd=latest_measurements.right_tec_on_cd,
-                         startup_times=startup_entries.time)
-    return fig
-
-
-def lr_timeonoffstats(params_minutes, side):
-    latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
-    total_time = (latest_measurements.time.tolist()[-1] - latest_measurements.time.tolist()[0]) / timedelta(minutes=1)
+def lr_timeonoffstats(total_time, times_minutes, tec_measurements):
     # how much time on
-    times_minutes = ((latest_measurements.time.tolist()[-1] - latest_measurements.time) / timedelta(minutes=1)).values
-    tec_measurements = latest_measurements[f"{side}_tec_status"].values
     pct_time_on = (np.trapezoid(tec_measurements[::-1], times_minutes[::-1])) / total_time
     return pct_time_on
 
 
-@callback(
-    Output("left-frac-on", "children"),
-    Input('interval-component', 'n_intervals'),
-    Input('display-length-slider', 'value')
-)
-def lt1(n, params_minutes):
-    pct_time_on = lr_timeonoffstats(params_minutes=params_minutes, side="left")
-    return f"Fraction time ON: {100 * pct_time_on:.1f}%"
-
-
-@callback(
-    Output("right-frac-on", "children"),
-    Input('interval-component', 'n_intervals'),
-    Input('display-length-slider', 'value')
-)
-def rt1(n, params_minutes):
-    pct_time_on = lr_timeonoffstats(params_minutes=params_minutes, side="right")
-    return f"Fraction time ON: {100 * pct_time_on:.1f}%"
-
-
-@callback(
-    Output("left-watts", "children"),
-    Input('interval-component', 'n_intervals'),
-    Input('display-length-slider', 'value')
-)
-def ltw1(n, params_minutes):
-    WATTS_PER_TEC = 85
-    pct_time_on = lr_timeonoffstats(params_minutes=params_minutes, side="left")
-    return f"Average consumption for {WATTS_PER_TEC}W TEC: {pct_time_on * WATTS_PER_TEC:.1f}W"
-
-
-@callback(
-    Output("right-watts", "children"),
-    Input('interval-component', 'n_intervals'),
-    Input('display-length-slider', 'value')
-)
-def rtw1(n, params_minutes):
-    WATTS_PER_TEC = 85
-    pct_time_on = lr_timeonoffstats(params_minutes=params_minutes, side="right")
-    return f"Average consumption for {WATTS_PER_TEC}W TEC: {pct_time_on * WATTS_PER_TEC:.1f}W"
-
-
-def lr_stats_avgincdecrease(params_minutes, side, increase):
-    latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
-    # how much time on
-    times_minutes = ((latest_measurements.time.tolist()[-1] - latest_measurements.time) / timedelta(minutes=1)).values
-    tec_measurements = latest_measurements[f"{side}_tec_status"].values
-    temp_measurements = latest_measurements[f"{side}_temperature"].values
+def lr_stats_avgincdecrease(times_minutes, tec_measurements, temp_measurements, increase):
     # select only measures when tec is off
     tec_status_fetch = (1 - (increase == 1) * 1)
     times_minutes = times_minutes[tec_measurements == tec_status_fetch]
@@ -625,52 +463,7 @@ def lr_stats_avgincdecrease(params_minutes, side, increase):
     return median_var
 
 
-@callback(
-    Output("left-tempinc", "children"),
-    Input('interval-component', 'n_intervals'),
-    Input('display-length-slider', 'value')
-)
-def lrs1(n, params_minutes):
-    median_var = lr_stats_avgincdecrease(params_minutes=params_minutes, side="left", increase=True)
-    return f"Mean temperature increase when TEC is OFF: {median_var:+.3f}°C/min"
-
-
-@callback(
-    Output("right-tempinc", "children"),
-    Input('interval-component', 'n_intervals'),
-    Input('display-length-slider', 'value')
-)
-def rrs1(n, params_minutes):
-    median_var = lr_stats_avgincdecrease(params_minutes=params_minutes, side="right", increase=True)
-    return f"Mean temperature increase when TEC is OFF: {median_var:+.3f}°C/min"
-
-
-@callback(
-    Output("left-tempdec", "children"),
-    Input('interval-component', 'n_intervals'),
-    Input('display-length-slider', 'value')
-)
-def lrst2(n, params_minutes):
-    median_var = lr_stats_avgincdecrease(params_minutes=params_minutes, side="left", increase=False)
-    return f"Mean temperature decrease when TEC is ON: {median_var:+.3f}°C/min"
-
-
-@callback(
-    Output("right-tempdec", "children"),
-    Input('interval-component', 'n_intervals'),
-    Input('display-length-slider', 'value')
-)
-def rrs2(n, params_minutes):
-    median_var = lr_stats_avgincdecrease(params_minutes=params_minutes, side="right", increase=False)
-    return f"Mean temperature decrease when TEC is ON: {median_var:+.3f}°C/min"
-
-
-def side_stats_avgteconoffincreasedecrease(params_minutes, side, increase):
-    latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
-    # how much time on
-    times_minutes = ((latest_measurements.time.tolist()[-1] - latest_measurements.time) / timedelta(minutes=1)).values
-    tec_measurements = latest_measurements[f"{side}_tec_status"].values
-    temp_measurements = latest_measurements[f"{side}_temperature"].values
+def side_stats_avgteconoffincreasedecrease(times_minutes, tec_measurements, temp_measurements, increase):
     # detect when tec was switched on/off
     switch_pos = np.diff(tec_measurements) != 0
     times_at_switch = times_minutes[1:][switch_pos]
@@ -683,54 +476,112 @@ def side_stats_avgteconoffincreasedecrease(params_minutes, side, increase):
 
 
 @callback(
-     Output("left-tecbased-tempdec", "children"),
-     Input('interval-component', 'n_intervals'),
-     Input('display-length-slider', 'value'))
-def ssl1(n, params_minutes):
-    avg_var = side_stats_avgteconoffincreasedecrease(params_minutes=params_minutes, side="left", increase=False)
-    return f"Mean temperature decrease between TEC switches: {avg_var:+.3f}°C/min"
+Output('current-backend-status', 'children'),
+    Output('live-update-graph-left', 'figure'),
+    Output('live-update-graph-right', 'figure'),
+    Output("left-frac-on", "children"),
+    Output("right-frac-on", "children"),
+    Output("left-watts", "children"),
+    Output("right-watts", "children"),
+    Output("left-tempinc", "children"),
+    Output("right-tempinc", "children"),
+    Output("left-tempdec", "children"),
+    Output("right-tempdec", "children"),
+    Output("left-tecbased-tempdec", "children"),
+    Output("left-tecbased-tempinc", "children"),
+    Output("right-tecbased-tempdec", "children"),
+    Output("right-tecbased-tempinc", "children"),
+    Output("obs-cycle-length", "children"),
+    Input('display-length-slider', 'value'),
+    Input('interval-component', 'n_intervals'))
+def callback_update_from_db(param_minutes, n):
+    # extract db
+    db_extract = fetch_db(param_minutes)
+    db_extract_entries = get_db_subset(db_extract=db_extract, events=["entry",])
+    db_extract_startups = get_db_subset(db_extract=db_extract, events=["startup",])
 
+    # prepare some variables
+    zero_time = db_extract_entries.time.tolist()[-1]
+    times_minutes = ((zero_time - db_extract_entries.time) / timedelta(minutes=1)).values
+    total_time = (zero_time - db_extract_entries.time.tolist()[0]) / timedelta(minutes=1)
+    tec_measurements, temp_measurements = {}, {}
+    for side in ("left", "right"):
+        tec_measurements[side] = db_extract_entries[f"{side}_tec_status"].values
+        temp_measurements[side] = db_extract_entries[f"{side}_temperature"].values
 
-@callback(
-     Output("left-tecbased-tempinc", "children"),
-     Input('interval-component', 'n_intervals'),
-     Input('display-length-slider', 'value'))
-def ssl2(n, params_minutes):
-    avg_var = side_stats_avgteconoffincreasedecrease(params_minutes=params_minutes, side="left", increase=True)
-    return f"Mean temperature increase between TEC switches: {avg_var:+.3f}°C/min"
+    # current backend stats
+    seen_last_since = (datetime.now() - zero_time) / timedelta(seconds=1)
+    # time out is cycle length + 5 seconds tolerance
+    params = load_params_()
+    timeout_time = params["loop_delay_seconds"] + 5
+    backend_status = "ALIVE" if seen_last_since < timeout_time else "AWOL"
+    backend_status_str = f"Backend status is currently: {backend_status} (refreshed {seen_last_since:.0f} seconds ago)"
 
+    # left fig
+    left_fig = draw_main_grap(time=db_extract_entries.time, temperature=db_extract_entries.left_temperature, heatsink_temperature=db_extract_entries.left_heatsink_temperature,
+                              target=db_extract_entries.left_target, limithi=db_extract_entries.left_limithi,
+                              limitlo=db_extract_entries.left_limitlo, tec_status=db_extract_entries.left_tec_status,
+                              tec_on_cd=db_extract_entries.left_tec_on_cd,
+                              startup_times=db_extract_startups.time)
 
-@callback(
-     Output("right-tecbased-tempdec", "children"),
-     Input('interval-component', 'n_intervals'),
-     Input('display-length-slider', 'value'))
-def ssr1(n, params_minutes):
-    avg_var = side_stats_avgteconoffincreasedecrease(params_minutes=params_minutes, side="right", increase=False)
-    return f"Mean temperature decrease between TEC switches: {avg_var:+.3f}°C/min"
+    # right fig
+    right_fig = draw_main_grap(time=db_extract_entries.time, temperature=db_extract_entries.right_temperature, heatsink_temperature=db_extract_entries.right_heatsink_temperature,
+                               target=db_extract_entries.right_target, limithi=db_extract_entries.right_limithi,
+                               limitlo=db_extract_entries.right_limitlo, tec_status=db_extract_entries.right_tec_status,
+                               tec_on_cd=db_extract_entries.right_tec_on_cd,
+                               startup_times=db_extract_startups.time)
 
+    # pct time on
+    WATTS_PER_TEC = 85
+    pct_time_on = lr_timeonoffstats(total_time=total_time, times_minutes=times_minutes, tec_measurements=tec_measurements["left"])
+    left_pct_time_on_str = f"Fraction time ON: {100 * pct_time_on:.1f}%"
+    left_watts_str = f"Average consumption for {WATTS_PER_TEC}W TEC: {pct_time_on * WATTS_PER_TEC:.1f}W"
+    pct_time_on = lr_timeonoffstats(total_time=total_time, times_minutes=times_minutes, tec_measurements=tec_measurements["right"])
+    right_pct_time_on_str = f"Fraction time ON: {100 * pct_time_on:.1f}%"
+    right_watts_str = f"Average consumption for {WATTS_PER_TEC}W TEC: {pct_time_on * WATTS_PER_TEC:.1f}W"
 
-@callback(
-     Output("right-tecbased-tempinc", "children"),
-     Input('interval-component', 'n_intervals'),
-     Input('display-length-slider', 'value'))
-def ssr2(n, params_minutes):
-    avg_var = side_stats_avgteconoffincreasedecrease(params_minutes=params_minutes, side="right", increase=True)
-    return f"Mean temperature increase between TEC switches: {avg_var:+.3f}°C/min"
+    # median var
+    median_var = lr_stats_avgincdecrease(times_minutes=times_minutes, tec_measurements=tec_measurements["left"], temp_measurements=temp_measurements["left"], increase=True)
+    left_temp_inc_str = f"Mean temperature increase when TEC is OFF: {median_var:+.3f}°C/min"
+    median_var = lr_stats_avgincdecrease(times_minutes=times_minutes, tec_measurements=tec_measurements["right"], temp_measurements=temp_measurements["right"], increase=True)
+    right_temp_inc_str = f"Mean temperature increase when TEC is OFF: {median_var:+.3f}°C/min"
+    median_var = lr_stats_avgincdecrease(times_minutes=times_minutes, tec_measurements=tec_measurements["left"], temp_measurements=temp_measurements["left"], increase=False)
+    left_temp_dec_str = f"Mean temperature decrease when TEC is ON: {median_var:+.3f}°C/min"
+    median_var = lr_stats_avgincdecrease(times_minutes=times_minutes, tec_measurements=tec_measurements["right"], temp_measurements=temp_measurements["right"], increase=False)
+    right_temp_dec_str = f"Mean temperature decrease when TEC is ON: {median_var:+.3f}°C/min"
 
+    # tec based stats
+    avg_var = side_stats_avgteconoffincreasedecrease(times_minutes=times_minutes, tec_measurements=tec_measurements["left"], temp_measurements=temp_measurements["left"], increase=False)
+    left_tecb_tempdec = f"Mean temperature decrease between TEC switches: {avg_var:+.3f}°C/min"
+    avg_var = side_stats_avgteconoffincreasedecrease(times_minutes=times_minutes, tec_measurements=tec_measurements["left"], temp_measurements=temp_measurements["left"], increase=True)
+    left_tecb_tempinc = f"Mean temperature increase between TEC switches: {avg_var:+.3f}°C/min"
+    avg_var = side_stats_avgteconoffincreasedecrease(times_minutes=times_minutes, tec_measurements=tec_measurements["right"], temp_measurements=temp_measurements["right"], increase=False)
+    right_tecb_tempdec = f"Mean temperature decrease between TEC switches: {avg_var:+.3f}°C/min"
+    avg_var = side_stats_avgteconoffincreasedecrease(times_minutes=times_minutes, tec_measurements=tec_measurements["right"], temp_measurements=temp_measurements["right"], increase=True)
+    right_tecb_tempinc = f"Mean temperature increase between TEC switches: {avg_var:+.3f}°C/min"
 
-def avg_cycle_length(params_minutes):
-    latest_measurements = db_get_measurements(minutes=params_minutes, df_buffer=df_buffer)
-    times_minutes = ((latest_measurements.time.tolist()[-1] - latest_measurements.time) / timedelta(minutes=1)).values
-    return float(- np.mean(np.diff(times_minutes)) * 60)
+    # observed cycle length
+    avg_cl = float(- np.mean(np.diff(times_minutes)) * 60)
+    obs_cycle_length_str = f"Observed cycle length: {avg_cl:.2f}s"
 
-
-@callback(
-     Output("obs-cycle-length", "children"),
-     Input('interval-component', 'n_intervals'),
-     Input('display-length-slider', 'value'))
-def obscl(n, params_minutes):
-    avg_cl = avg_cycle_length(params_minutes=params_minutes)
-    return f"Observed cycle length: {avg_cl:.2f}s"
+    return (
+        backend_status_str,
+        left_fig,
+        right_fig,
+        left_pct_time_on_str,
+        right_pct_time_on_str,
+        left_watts_str,
+        right_watts_str,
+        left_temp_inc_str,
+        right_temp_inc_str,
+        left_temp_dec_str,
+        right_temp_dec_str,
+        left_tecb_tempdec,
+        left_tecb_tempinc,
+        right_tecb_tempdec,
+        right_tecb_tempinc,
+        obs_cycle_length_str,
+        )
 
 
 if __name__ == '__main__':
