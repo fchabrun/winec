@@ -10,6 +10,11 @@ import numpy as np
 import time
 import json
 
+# TODO better handle db fetch:
+# put interval callback only on ONE PARAGRAPH that will display (possibly invisibly) the last time db was fetched
+# and each other function will not trigger at interval but when this PARAGRAPH is updated
+# and the db will be a global variable
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode")
 parser.add_argument("--host")
@@ -137,7 +142,7 @@ def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, lim
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
     # get secondary y axis height
-    min_sec_y, max_sec_y = min(heatsink_temperature), max(heatsink_temperature)
+    min_sec_y, max_sec_y = min(0, min(heatsink_temperature) - 1), max(100, max(heatsink_temperature) + 1)
 
     # make tec status values in the heatsink temp range
     tec_status_filter_on = tec_status == 1
@@ -146,18 +151,22 @@ def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, lim
     tec_status_cp[~tec_status_filter_on] = min_sec_y
 
     # rework data for tec display
-    tec_status_time_rw, tec_status_onoff_rw = rework_onoff_with_times(time, tec_status_cp)
-    tec_cd_time_rw, tec_cd_onoff_rw = rework_onoff_with_times(time, tec_on_cd)
+    # tec_status_time_rw, tec_status_onoff_rw = rework_onoff_with_times(time, tec_status_cp)
+    # tec_cd_time_rw, tec_cd_onoff_rw = rework_onoff_with_times(time, tec_on_cd)
 
     # TEC status
     fig.add_trace(
-        go.Scatter(x=tec_status_time_rw, y=tec_status_onoff_rw, name="TEC status", line=dict(width=.5, color='rgb(255,200,200)'),
+    #    go.Scatter(x=tec_status_time_rw, y=tec_status_onoff_rw, name="TEC status", line=dict(width=.5, color='rgb(255,200,200)'),
+    #               fill='tozeroy'),
+        go.Scatter(x=time, y=tec_status_cp, name="TEC status", line=dict(width=.5, color='rgb(255,200,200)'),
                    fill='tozeroy'),
         secondary_y=True,
     )
     # & tec on cd
     fig.add_trace(
-        go.Scatter(x=tec_cd_time_rw, y=tec_cd_onoff_rw, name="TEC on CD", line=dict(width=.5, color='rgb(255,219,187)'),
+    #    go.Scatter(x=tec_cd_time_rw, y=tec_cd_onoff_rw, name="TEC on CD", line=dict(width=.5, color='rgb(255,219,187)'),
+    #               fill='tozeroy'),
+        go.Scatter(x=time, y=tec_on_cd, name="TEC on CD", line=dict(width=.5, color='rgb(255,219,187)'),
                    fill='tozeroy'),
         secondary_y=True,
     )
@@ -193,7 +202,7 @@ def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, lim
     # add startup times
     for startup_time in startup_times:
         fig.add_trace(
-            go.Scatter(x=[startup_time, startup_time], y=[0, 1], mode="lines", name="Startup",
+            go.Scatter(x=[startup_time, startup_time], y=[min_sec_y, max_sec_y], mode="lines", name="Startup",
                        line=dict(width=3, color='rgb(0,180,0)')),
             secondary_y=True,
         )
