@@ -11,9 +11,8 @@ from luma.core.virtual import sevensegment
 
 def main():
     # create seven segment device
-    # serial = spi(port=0, device=0, gpio=noop())
-    serial = spi(port=0, device=0, gpio=CS_PIN)
-    device = max7219(serial, cascaded=1)
+    serial = spi(port=0, device=1, gpio=noop())
+    device = max7219(serial, cascaded=0)
     seg = sevensegment(device)
 
     while True:
