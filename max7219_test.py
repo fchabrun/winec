@@ -1,7 +1,7 @@
 import socket
 import time
 
-UDP_IP = "192.168.1.1"
+UDP_IP = "192.168.1.20"
 UDP_PORT = 4210
 MESSAGE = "13310000005"
 
