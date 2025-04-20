@@ -8,5 +8,5 @@ MESSAGE = "13310000005"
 sock = socket.socket(socket.AF_INET, # Internet
                      socket.SOCK_DGRAM) # UDP
 while True:
-    sock.sendto(MESSAGE, (UDP_IP, UDP_PORT))
+    sock.sendto(bytes(MESSAGE, "utf-8"), (UDP_IP, UDP_PORT))
     time.sleep(10);
