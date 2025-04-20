@@ -12,4 +12,4 @@ while True:
     assert len(MESSAGE) == 8, f"message is too long: {MESSAGE=}"
     sock.sendto(bytes(MESSAGE, "utf-8"), (UDP_IP, UDP_PORT))
     cur_temp += .1;
-    time.sleep(1);
+    time.sleep(5);
