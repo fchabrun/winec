@@ -3,6 +3,7 @@ import os
 import time
 import argparse
 import sys
+import socket
 from datetime import datetime
 from gpiozero import LED
 
@@ -35,7 +36,14 @@ parser.add_argument("--bmp180_security_temp_lo", default=0)
 parser.add_argument("--bmp180_security_temp_hi", default=40)
 parser.add_argument("--heatsink_security_temp_lo", default=0)
 parser.add_argument("--heatsink_security_temp_hi", default=100)
+# esp32 communication (temp display)
+parser.add_argument("--left_esp_udp_ip", default="192.168.1.20")
+parser.add_argument("--left_esp_udp_port", default=4210)
+parser.add_argument("--right_esp_udp_ip", default="192.168.1.178")
+parser.add_argument("--right_esp_udp_port", default=4210)
+parser.add_argument("--esp_udp_refresh_delay", default=5)
 args = parser.parse_args()
+
 
 def now():
     return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -298,6 +306,12 @@ if __name__ == "__main__":
         log("executing params clear")
         clear_params()
 
+    # initialize udp
+    log("setting up udp socket")
+    sock = socket.socket(socket.AF_INET, # Internet
+                         socket.SOCK_DGRAM) # UDP
+    log("udp initialized")
+
     # initialize db
     query_status = False
     log("initializing database")
@@ -364,107 +378,139 @@ if __name__ == "__main__":
     log(f"successfully intialized left bmp with {args.right_bmp180_bus=} and {args.right_bmp180_address=}")
 
     params = None
+    last_iteration_time = None
+    last_udp_update = None
+    left_temp, right_temp = None, None
 
     while True:
-        # log("loop iteration")
+        if last_iteration_time is None or (time.time() - last_iteration_time >= params["loop_delay_seconds"]):
+            last_iteration_time = time.time()
+    
+            # log("loop iteration")
+    
+            # load params at every cycle in case something changed
+            new_params = None
+            while new_params is None:
+                new_params = get_params()
+                if new_params is not None:  # could retrieve new params
+                    params = new_params
+                    break
+                elif params is not None:  # could not retrieve but can run on older params
+                    log("unable to retrieve new params, running on old params")
+                    break
+                else:  # no params at all: waiting until params are found
+                    log("unable to retrieve params, retrying in 5 seconds")
+                    time.sleep(5)
+    
+            # get temperature measurements
+            left_temp, right_temp = get_current_temperatures()
+            if (left_temp is None) or (right_temp is  None):  # problem retrieving temperatures: security shutdown
+                log("unable to retrieve temperatures")
+                security_shutdown(left_tec_instance, right_tec_instance)
+    
+            if (left_temp < args.bmp180_security_temp_lo) or (left_temp > args.bmp180_security_temp_hi):
+                log(f"inconsistent {left_temp=}")
+                security_shutdown(left_tec_instance, right_tec_instance)
+    
+            if (right_temp < args.bmp180_security_temp_lo) or (right_temp > args.bmp180_security_temp_hi):
+                log(f"inconsistent {right_temp=}")
+                security_shutdown(left_tec_instance, right_tec_instance)
+    
+            # get heatsink temperature measurements
+            left_heatsink_temp, right_heatsink_temp = None, None
+            try:
+                left_heatsink_temp = left_heatsink_ds18b20.read_temp()
+            except Exception as error:
+                log("unable to read left heatsink temperature")
+                log(f"{error=}")
+            try:
+                right_heatsink_temp = right_heatsink_ds18b20.read_temp()
+            except Exception as error:
+                log("unable to read right heatsink temperature")
+                log(f"{error=}")
+            # turn tecs off if temperatures are too low (inconsistent?) or high (too hot!)
+            if (left_heatsink_temp is None) or (right_heatsink_temp is None):
+                security_shutdown(left_tec_instance, right_tec_instance)
+            else:
+                if left_heatsink_temp < args.heatsink_security_temp_lo:
+                    log(f"reached too low left heatsink temperature {left_heatsink_temp=}, shutting down left tec")
+                    left_tec_instance.turn_off()
+                elif left_heatsink_temp > args.heatsink_security_temp_hi:
+                    log(f"reached too high left heatsink temperature {left_heatsink_temp=}, shutting down left tec")
+                    left_tec_instance.turn_off()
+                if right_heatsink_temp < args.heatsink_security_temp_lo:
+                    log(f"reached too low left heatsink temperature {right_heatsink_temp=}, shutting down left tec")
+                    right_tec_instance.turn_off()
+                elif right_heatsink_temp > args.heatsink_security_temp_hi:
+                    log(f"reached too high left heatsink temperature {right_heatsink_temp=}, shutting down left tec")
+                    right_tec_instance.turn_off()
+    
+            # store new temperature measurements
+            query_status = db_store_measurements(left_temp, params["left"]["target_temperature"], params["left"]["target_temperature"] + params["left"]["temperature_deviation"], params["left"]["target_temperature"] - params["left"]["temperature_deviation"],
+                                                 left_heatsink_temp,
+                                                 right_temp, params["right"]["target_temperature"], params["right"]["target_temperature"] + params["right"]["temperature_deviation"], params["right"]["target_temperature"] - params["right"]["temperature_deviation"],
+                                                 right_heatsink_temp,
+                                                 left_tec_instance.status, right_tec_instance.status,
+                                                 left_tec_instance.on_cd(params["left"]["tec_cooldown_seconds"]),
+                                                 right_tec_instance.on_cd(params["right"]["tec_cooldown_seconds"]))
+            if not query_status:
+                log("unable to store measurements in database")
+    
+            # decide if tec has to go on or off
+            # log("measurement-based decision")
+            try:
+                if left_tec_instance.status & (left_temp < (params["left"]["target_temperature"] - params["left"]["temperature_deviation"])):
+                    # turn off and store
+                    log("turning left tec off")
+                    left_tec_instance.turn_off()
+                elif (not left_tec_instance.status) & (left_temp > (params["left"]["target_temperature"] + params["left"]["temperature_deviation"])):
+                    # before turning on, checked that the CD is off
+                    if not left_tec_instance.on_cd(params["left"]["tec_cooldown_seconds"]):
+                        # turn on and store
+                        log("turning left tec on")
+                        left_tec_instance.turn_on()
+                # also for right
+                if right_tec_instance.status & (right_temp < (params["right"]["target_temperature"] - params["right"]["temperature_deviation"])):
+                    # turn off and store
+                    log("turning right tec off")
+                    right_tec_instance.turn_off()
+                elif (not right_tec_instance.status) & (right_temp > (params["right"]["target_temperature"] + params["right"]["temperature_deviation"])):
+                    # before turning on, checked that the CD is off
+                    if not right_tec_instance.on_cd(params["right"]["tec_cooldown_seconds"]):
+                        # turn on and store
+                        log("turning right tec on")
+                        right_tec_instance.turn_on()
+            except Exception as error:
+                log("error during temp-based tec decision")
+                log(f"{error=}")
+                security_shutdown(left_tec_instance, right_tec_instance)
 
-        # load params at every cycle in case something changed
-        new_params = None
-        while new_params is None:
-            new_params = get_params()
-            if new_params is not None:  # could retrieve new params
-                params = new_params
-                break
-            elif params is not None:  # could not retrieve but can run on older params
-                log("unable to retrieve new params, running on old params")
-                break
-            else:  # no params at all: waiting until params are found
-                log("unable to retrieve params, retrying in 5 seconds")
-                time.sleep(5)
+            # wait until next cycle
+            # log(f"going to sleep for {params['loop_delay_seconds']} seconds")
 
-        # get temperature measurements
-        left_temp, right_temp = get_current_temperatures()
-        if (left_temp is None) or (right_temp is  None):  # problem retrieving temperatures: security shutdown
-            log("unable to retrieve temperatures")
-            security_shutdown(left_tec_instance, right_tec_instance)
+        if last_udp_update is None or (time.time() - last_udp_update >= args.esp_udp_refresh_delay):
+            last_udp_update = time.time()
 
-        if (left_temp < args.bmp180_security_temp_lo) or (left_temp > args.bmp180_security_temp_hi):
-            log(f"inconsistent {left_temp=}")
-            security_shutdown(left_tec_instance, right_tec_instance)
-
-        if (right_temp < args.bmp180_security_temp_lo) or (right_temp > args.bmp180_security_temp_hi):
-            log(f"inconsistent {right_temp=}")
-            security_shutdown(left_tec_instance, right_tec_instance)
-
-        # get heatsink temperature measurements
-        left_heatsink_temp, right_heatsink_temp = None, None
-        try:
-            left_heatsink_temp = left_heatsink_ds18b20.read_temp()
-        except Exception as error:
-            log("unable to read left heatsink temperature")
-            log(f"{error=}")
-        try:
-            right_heatsink_temp = right_heatsink_ds18b20.read_temp()
-        except Exception as error:
-            log("unable to read right heatsink temperature")
-            log(f"{error=}")
-        # turn tecs off if temperatures are too low (inconsistent?) or high (too hot!)
-        if (left_heatsink_temp is None) or (right_heatsink_temp is None):
-            security_shutdown(left_tec_instance, right_tec_instance)
-        else:
-            if left_heatsink_temp < args.heatsink_security_temp_lo:
-                log(f"reached too low left heatsink temperature {left_heatsink_temp=}, shutting down left tec")
-                left_tec_instance.turn_off()
-            elif left_heatsink_temp > args.heatsink_security_temp_hi:
-                log(f"reached too high left heatsink temperature {left_heatsink_temp=}, shutting down left tec")
-                left_tec_instance.turn_off()
-            if right_heatsink_temp < args.heatsink_security_temp_lo:
-                log(f"reached too low left heatsink temperature {right_heatsink_temp=}, shutting down left tec")
-                right_tec_instance.turn_off()
-            elif right_heatsink_temp > args.heatsink_security_temp_hi:
-                log(f"reached too high left heatsink temperature {right_heatsink_temp=}, shutting down left tec")
-                right_tec_instance.turn_off()
-
-        # store new temperature measurements
-        query_status = db_store_measurements(left_temp, params["left"]["target_temperature"], params["left"]["target_temperature"] + params["left"]["temperature_deviation"], params["left"]["target_temperature"] - params["left"]["temperature_deviation"],
-                                             left_heatsink_temp,
-                                             right_temp, params["right"]["target_temperature"], params["right"]["target_temperature"] + params["right"]["temperature_deviation"], params["right"]["target_temperature"] - params["right"]["temperature_deviation"],
-                                             right_heatsink_temp,
-                                             left_tec_instance.status, right_tec_instance.status,
-                                             left_tec_instance.on_cd(params["left"]["tec_cooldown_seconds"]),
-                                             right_tec_instance.on_cd(params["right"]["tec_cooldown_seconds"]))
-        if not query_status:
-            log("unable to store measurements in database")
-
-        # decide if tec has to go on or off
-        # log("measurement-based decision")
-        try:
-            if left_tec_instance.status & (left_temp < (params["left"]["target_temperature"] - params["left"]["temperature_deviation"])):
-                # turn off and store
-                log("turning left tec off")
-                left_tec_instance.turn_off()
-            elif (not left_tec_instance.status) & (left_temp > (params["left"]["target_temperature"] + params["left"]["temperature_deviation"])):
-                # before turning on, checked that the CD is off
-                if not left_tec_instance.on_cd(params["left"]["tec_cooldown_seconds"]):
-                    # turn on and store
-                    log("turning left tec on")
-                    left_tec_instance.turn_on()
-            # also for right
-            if right_tec_instance.status & (right_temp < (params["right"]["target_temperature"] - params["right"]["temperature_deviation"])):
-                # turn off and store
-                log("turning right tec off")
-                right_tec_instance.turn_off()
-            elif (not right_tec_instance.status) & (right_temp > (params["right"]["target_temperature"] + params["right"]["temperature_deviation"])):
-                # before turning on, checked that the CD is off
-                if not right_tec_instance.on_cd(params["right"]["tec_cooldown_seconds"]):
-                    # turn on and store
-                    log("turning right tec on")
-                    right_tec_instance.turn_on()
-        except Exception as error:
-            log("error during temp-based tec decision")
-            log(f"{error=}")
-            security_shutdown(left_tec_instance, right_tec_instance)
-
-        # wait until next cycle
-        # log(f"going to sleep for {params['loop_delay_seconds']} seconds")
-        time.sleep(params["loop_delay_seconds"])
+            # send udp message
+            UDP_MESSAGE = ""
+            if (left_temp is None):
+                UDP_MESSAGE += "0000"
+            else:
+                UDP_MESSAGE += f"{int(round(left_temp*10)):03}1"
+            if (right_temp is None):
+                UDP_MESSAGE += "0000"
+            else:
+                UDP_MESSAGE += f"{int(round(right_temp*10)):03}1"
+            if len(MESSAGE) == 8:
+                try:
+                    sock.sendto(bytes(UDP_MESSAGE, "utf-8"), (args.left_esp_udp_ip, args.left_esp_udp_port))
+                except Exception as error:
+                    log("error while sending UDP packet to left esp32")
+                    log(f"{error=}")
+                try:
+                    sock.sendto(bytes(UDP_MESSAGE, "utf-8"), (args.right_esp_udp_ip, args.right_esp_udp_port))
+                except Exception as error:
+                    log("error while sending UDP packet to left esp32")
+                    log(f"{error=}")
+            else:
+                log(f"invalid UDP message: {UDP_MESSAGE=}, not sent")
