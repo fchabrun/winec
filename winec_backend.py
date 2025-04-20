@@ -501,7 +501,7 @@ if __name__ == "__main__":
                 UDP_MESSAGE += "0000"
             else:
                 UDP_MESSAGE += f"{int(round(right_temp*10)):03}1"
-            if len(MESSAGE) == 8:
+            if len(UDP_MESSAGE ) == 8:
                 try:
                     sock.sendto(bytes(UDP_MESSAGE, "utf-8"), (args.left_esp_udp_ip, args.left_esp_udp_port))
                 except Exception as error:
