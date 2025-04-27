@@ -10,11 +10,6 @@ import numpy as np
 import time
 import json
 
-# TODO better handle db fetch:
-# put interval callback only on ONE PARAGRAPH that will display (possibly invisibly) the last time db was fetched
-# and each other function will not trigger at interval but when this PARAGRAPH is updated
-# and the db will be a global variable
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode")
 parser.add_argument("--host")
