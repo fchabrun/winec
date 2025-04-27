@@ -7,6 +7,10 @@ import socket
 from datetime import datetime
 from gpiozero import LED
 
+# TODO WineC ESP32C3: there is the bug with the blink rythm: doing modulo on time in seconds instead of number of steps, thus 1 blinking step will always be 1 second!
+# TODO put most arguments as params rather than in parser flags; so we can edit them without restarting the app
+# TODO in winec_display: do not refresh automatically, but on button push instead to prevent bugs
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode")
 parser.add_argument("--host")
@@ -153,9 +157,6 @@ def db_store_startup():
 
 
 def db_store_measurements(left_temp, left_target, left_limithi, left_limitlo, left_heatsink_temp, right_temp, right_target, right_limithi, right_limitlo, right_heatsink_temp, left_tec_status, right_tec_status, left_tec_on_cd, right_tec_on_cd):
-    # TODO
-    left_heatsink_temp
-    right_heatsink_temp
     if args.db_platform == "sqlite3":
         query = f"INSERT INTO temperature_measurements VALUES ('{now()}', 'entry', {left_temp:.2f}, {left_target:.2f}, {left_limithi:.2f}, {left_limitlo:.2f}, {left_heatsink_temp:.2f}, {right_temp:.2f}, {right_target:.2f}, {right_limithi:.2f}, {right_limitlo:.2f}, {right_heatsink_temp:.2f}, {left_tec_status:b}, {right_tec_status:b}, {left_tec_on_cd:b}, {right_tec_on_cd:b})"
         return run_db_query_sqlite3(query)
