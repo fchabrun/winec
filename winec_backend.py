@@ -35,17 +35,6 @@ parser.add_argument("--db_port", default=3306)
 parser.add_argument("--db_user", default="cav")
 parser.add_argument("--db_password", default="caveavin")
 parser.add_argument("--db_database", default="winec")
-# security
-parser.add_argument("--bmp180_security_temp_lo", default=0)
-parser.add_argument("--bmp180_security_temp_hi", default=40)
-parser.add_argument("--heatsink_security_temp_lo", default=0)
-parser.add_argument("--heatsink_security_temp_hi", default=60)
-# esp32 communication (temp display)
-parser.add_argument("--left_esp_udp_ip", default="192.168.1.2")
-parser.add_argument("--left_esp_udp_port", default=4210)
-parser.add_argument("--right_esp_udp_ip", default="192.168.1.32")
-parser.add_argument("--right_esp_udp_port", default=4210)
-parser.add_argument("--esp_udp_refresh_delay", default=5)
 args = parser.parse_args()
 
 
@@ -172,17 +161,26 @@ def db_store_measurements(left_temp, left_target, left_limithi, left_limitlo, le
 def default_params():
     params = {
         "loop_delay_seconds": 10,
+        "bmp180_security_temp_lo": 0,
+        "bmp180_security_temp_hi": 40,
+        "heatsink_security_temp_lo": 0,
+        "heatsink_security_temp_hi": 60,
+        "esp_udp_refresh_delay": 5,
         "left": {
             "status": True,
             "target_temperature": 12.0,  # target temperature
             "temperature_deviation": 1.0,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
             "tec_cooldown_seconds": 60,  # the tec won't be activated again before waiting for the end of the cooldown delay
+            "left_esp_udp_ip": "192.168.1.2",
+            "left_esp_udp_port": 4210
         },
         "right": {
             "status": True,
             "target_temperature": 12.0,  # target temperature
             "temperature_deviation": 1.0,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
             "tec_cooldown_seconds": 60,  # the tec won't be activated again before waiting for the end of the cooldown delay
+            "right_esp_udp_ip": "192.168.1.2",
+            "right_esp_udp_port": 4210
         }
     }
     return params
@@ -409,11 +407,11 @@ if __name__ == "__main__":
                 log("unable to retrieve temperatures")
                 security_shutdown(left_tec_instance, right_tec_instance)
     
-            if (left_temp < args.bmp180_security_temp_lo) or (left_temp > args.bmp180_security_temp_hi):
+            if (left_temp < params["bmp180_security_temp_lo"]) or (left_temp > params["bmp180_security_temp_hi"]):
                 log(f"inconsistent {left_temp=}")
                 security_shutdown(left_tec_instance, right_tec_instance)
     
-            if (right_temp < args.bmp180_security_temp_lo) or (right_temp > args.bmp180_security_temp_hi):
+            if (right_temp < params["bmp180_security_temp_lo"]) or (right_temp > params["bmp180_security_temp_hi"]):
                 log(f"inconsistent {right_temp=}")
                 security_shutdown(left_tec_instance, right_tec_instance)
     
@@ -433,16 +431,16 @@ if __name__ == "__main__":
             if (left_heatsink_temp is None) or (right_heatsink_temp is None):
                 security_shutdown(left_tec_instance, right_tec_instance)
             else:
-                if left_heatsink_temp < args.heatsink_security_temp_lo:
+                if left_heatsink_temp < params["heatsink_security_temp_lo"]:
                     log(f"reached too low left heatsink temperature {left_heatsink_temp=}, shutting down left tec")
                     left_tec_instance.turn_off()
-                elif left_heatsink_temp > args.heatsink_security_temp_hi:
+                elif left_heatsink_temp > params["heatsink_security_temp_hi"]:
                     log(f"reached too high left heatsink temperature {left_heatsink_temp=}, shutting down left tec")
                     left_tec_instance.turn_off()
-                if right_heatsink_temp < args.heatsink_security_temp_lo:
+                if right_heatsink_temp < params["heatsink_security_temp_lo"]:
                     log(f"reached too low left heatsink temperature {right_heatsink_temp=}, shutting down left tec")
                     right_tec_instance.turn_off()
-                elif right_heatsink_temp > args.heatsink_security_temp_hi:
+                elif right_heatsink_temp > params["heatsink_security_temp_hi"]:
                     log(f"reached too high left heatsink temperature {right_heatsink_temp=}, shutting down left tec")
                     right_tec_instance.turn_off()
     
@@ -489,7 +487,7 @@ if __name__ == "__main__":
             # wait until next cycle
             # log(f"going to sleep for {params['loop_delay_seconds']} seconds")
 
-        if last_udp_update is None or (time.time() - last_udp_update >= args.esp_udp_refresh_delay):
+        if last_udp_update is None or (time.time() - last_udp_update >= params["esp_udp_refresh_delay"]):
             last_udp_update = time.time()
 
             # send udp message
@@ -504,12 +502,12 @@ if __name__ == "__main__":
                 UDP_MESSAGE += f"{int(round(right_temp*10)):03}1"
             if len(UDP_MESSAGE ) == 8:
                 try:
-                    sock.sendto(bytes(UDP_MESSAGE, "utf-8"), (args.left_esp_udp_ip, args.left_esp_udp_port))
+                    sock.sendto(bytes(UDP_MESSAGE, "utf-8"), (params["left_esp_udp_ip"], params["left_esp_udp_port"]))
                 except Exception as error:
                     log("error while sending UDP packet to left esp32")
                     log(f"{error=}")
                 try:
-                    sock.sendto(bytes(UDP_MESSAGE, "utf-8"), (args.right_esp_udp_ip, args.right_esp_udp_port))
+                    sock.sendto(bytes(UDP_MESSAGE, "utf-8"), (params["right_esp_udp_ip"], params["right_esp_udp_port"]))
                 except Exception as error:
                     log("error while sending UDP packet to left esp32")
                     log(f"{error=}")
