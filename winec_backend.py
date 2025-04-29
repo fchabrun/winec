@@ -7,7 +7,6 @@ import socket
 from datetime import datetime
 from gpiozero import LED
 
-# TODO in winec_display: do not refresh automatically, but on button push instead to prevent bugs
 # TODO in winec_display: have an option to display deltas instead of raw values
 
 parser = argparse.ArgumentParser()
