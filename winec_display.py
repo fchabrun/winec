@@ -266,7 +266,8 @@ sidebar = html.Div(
         html.Div([
             html.P("Display last (min)", style={"display": "inline-block", "width": "80%"}),
             dcc.Input(min=1, max=1440, step=1, value=60, id='display-length-slider', type="number",
-                      style={"display": "inline-block", "width": "20%", "text-align": "right"})
+                      style={"display": "inline-block", "width": "20%", "text-align": "right"}),
+            html.Button('Refresh', id='refresh-button', style={"width": "100%"}, n_clicks=0),
         ]),
         html.Hr(),
         html.Div([
@@ -351,11 +352,11 @@ content = html.Div(
                 ], style={'width': '40%', 'display': 'table-cell', 'vertical-align': 'middle', "padding": "0rem 2rem"}),
             ], style={"display": "table", 'width': '100%'})
         ], id='right-div', style={'width': '100%', 'display': 'inline-block'}),
-        dcc.Interval(
-            id='interval-component',
-            interval=db_refresh_delay * 1000,  # in milliseconds
-            n_intervals=0
-        ),
+        # dcc.Interval(
+        #     id='interval-component',
+        #     interval=db_refresh_delay * 1000,  # in milliseconds
+        #     n_intervals=0
+        # ),
     ], id="page-content", style=CONTENT_STYLE
 )
 
@@ -480,7 +481,7 @@ def side_stats_avgteconoffincreasedecrease(times_minutes, tec_measurements, temp
 
 
 @callback(
-Output('current-backend-status', 'children'),
+    Output('current-backend-status', 'children'),
     Output('live-update-graph-left', 'figure'),
     Output('live-update-graph-right', 'figure'),
     Output("left-frac-on", "children"),
@@ -497,7 +498,9 @@ Output('current-backend-status', 'children'),
     Output("right-tecbased-tempinc", "children"),
     Output("obs-cycle-length", "children"),
     Input('display-length-slider', 'value'),
-    Input('interval-component', 'n_intervals'))
+    Input('refresh-button', 'n_clicks'),
+    # Input('interval-component', 'n_intervals'),
+)
 def callback_update_from_db(param_minutes, n):
     # extract db
     db_extract = fetch_db(param_minutes)
