@@ -169,7 +169,7 @@ def default_params():
         "left": {
             "status": True,
             "target_temperature": 12.0,  # target temperature
-            "temperature_deviation": 1.0,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
+            "temperature_deviation": 0.5,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
             "tec_cooldown_seconds": 60,  # the tec won't be activated again before waiting for the end of the cooldown delay
             "esp_udp_ip": "192.168.1.2",
             "esp_udp_port": 4210
@@ -177,7 +177,7 @@ def default_params():
         "right": {
             "status": True,
             "target_temperature": 12.0,  # target temperature
-            "temperature_deviation": 1.0,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
+            "temperature_deviation": 0.5,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
             "tec_cooldown_seconds": 60,  # the tec won't be activated again before waiting for the end of the cooldown delay
             "esp_udp_ip": "192.168.1.32",
             "esp_udp_port": 4210
