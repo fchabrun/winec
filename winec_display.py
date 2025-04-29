@@ -133,9 +133,10 @@ def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, lim
         return None
 
     if display_diff:
-        temperature = temperature.copy().diff()
-        heatsink_temperature = temperature.copy().diff()
-        time = time.iloc[1:].copy()
+        time_delta = (time.iloc[1:].copy().reset_index(drop=True) - time.iloc[:-1].copy().reset_index(drop=True)) / pd.Timedelta(seconds=60)
+        temperature = temperature.copy().diff().iloc[1:].reset_index(drop=True) / time_delta.values
+        heatsink_temperature = temperature.copy().diff().iloc[1:].reset_index(drop=True) / time_delta.values
+        time = time.iloc[1:].copy().reset_index(drop=True)
             
         fig = make_subplots(specs=[[{"secondary_y": True}]])
     
@@ -197,8 +198,8 @@ def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, lim
         lower_temp_limit = min(temperature) - 1
     
         # Set y-axes titles
-        fig.update_yaxes(title_text="Temperature Δ (°C)", range=(lower_temp_limit, upper_temp_limit), secondary_y=False)
-        fig.update_yaxes(title_text="Heatsink temperature Δ (°C)", range=(min_sec_y, max_sec_y), secondary_y=True)
+        fig.update_yaxes(title_text="Temperature Δ (°C/min)", range=(lower_temp_limit, upper_temp_limit), secondary_y=False)
+        fig.update_yaxes(title_text="Heatsink temperature Δ (°C/min)", range=(min_sec_y, max_sec_y), secondary_y=True)
     
         fig.update_layout(template="plotly_white", margin=dict(t=50, b=50))
     
