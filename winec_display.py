@@ -194,8 +194,8 @@ def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, lim
         fig.update_xaxes(title_text="Time")
     
         # get first y axis range
-        upper_temp_limit = max(temperature) + 1
-        lower_temp_limit = min(temperature) - 1
+        upper_temp_limit = max(temperature)
+        lower_temp_limit = min(temperature)
     
         # Set y-axes titles
         fig.update_yaxes(title_text="Temperature Δ (°C/min)", range=(lower_temp_limit, upper_temp_limit), secondary_y=False)
