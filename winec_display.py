@@ -340,7 +340,7 @@ sidebar = html.Div(
                       style={"display": "inline-block", "width": "20%", "text-align": "right"}),
             dbc.Switch(
                 id="diff-switch",
-                label="Deltas",
+                label="Display differences",
                 value=False,
             ),
             html.Button('Refresh', id='refresh-button', style={"width": "100%"}, n_clicks=0),
