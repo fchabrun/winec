@@ -134,8 +134,8 @@ def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, lim
 
     if display_diff:
         time_delta = (time.iloc[1:].copy().reset_index(drop=True) - time.iloc[:-1].copy().reset_index(drop=True)) / pd.Timedelta(seconds=60)
-        temperature = temperature.copy().diff().reset_index(drop=True) / time_delta.values
-        heatsink_temperature = temperature.copy().diff().reset_index(drop=True) / time_delta.values
+        temperature = temperature.copy().diff().iloc[1:].reset_index(drop=True) / time_delta.values
+        heatsink_temperature = temperature.copy().diff().iloc[1:].reset_index(drop=True) / time_delta.values
         time = time.iloc[1:].copy().reset_index(drop=True)
             
         fig = make_subplots(specs=[[{"secondary_y": True}]])
