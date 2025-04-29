@@ -599,7 +599,7 @@ def callback_update_from_db(param_minutes, n, diff_switch):
                               target=db_extract_entries.left_target, limithi=db_extract_entries.left_limithi,
                               limitlo=db_extract_entries.left_limitlo, tec_status=db_extract_entries.left_tec_status,
                               tec_on_cd=db_extract_entries.left_tec_on_cd,
-                              startup_times=db_extract_startups.time;
+                              startup_times=db_extract_startups.time,
                               display_diff=diff_switch)
 
     # right fig
