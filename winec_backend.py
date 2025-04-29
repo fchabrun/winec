@@ -7,7 +7,6 @@ import socket
 from datetime import datetime
 from gpiozero import LED
 
-# TODO WineC ESP32C3: there is the bug with the blink rythm: doing modulo on time in seconds instead of number of steps, thus 1 blinking step will always be 1 second!
 # TODO in winec_display: do not refresh automatically, but on button push instead to prevent bugs
 
 parser = argparse.ArgumentParser()
