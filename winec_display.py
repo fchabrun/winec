@@ -46,8 +46,6 @@ if args.db_platform == "sqlite3":
 elif args.db_platform == "mariadb":
     from sqlalchemy import create_engine
 
-db_refresh_delay = 5  # refresh at most every 5 seconds
-
 
 def load_params_():
     json_path = os.path.join(args.rundir, "settings.json")
@@ -130,7 +128,7 @@ def rework_onoff_with_times(time, onoff):
     return time_rw, onoff_rw
 
 
-def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, limitlo, tec_status, tec_on_cd, startup_times):
+def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, limitlo, tec_status, tec_on_cd, startup_times, display_diff):
     if len(time) == 0:
         return None
 
@@ -267,6 +265,11 @@ sidebar = html.Div(
             html.P("Display last (min)", style={"display": "inline-block", "width": "80%"}),
             dcc.Input(min=1, max=1440, step=1, value=60, id='display-length-slider', type="number",
                       style={"display": "inline-block", "width": "20%", "text-align": "right"}),
+            dbc.Switch(
+                id="diff-switch",
+                label="Deltas",
+                value=False,
+            ),
             html.Button('Refresh', id='refresh-button', style={"width": "100%"}, n_clicks=0),
         ]),
         html.Hr(),
@@ -352,11 +355,6 @@ content = html.Div(
                 ], style={'width': '40%', 'display': 'table-cell', 'vertical-align': 'middle', "padding": "0rem 2rem"}),
             ], style={"display": "table", 'width': '100%'})
         ], id='right-div', style={'width': '100%', 'display': 'inline-block'}),
-        # dcc.Interval(
-        #     id='interval-component',
-        #     interval=db_refresh_delay * 1000,  # in milliseconds
-        #     n_intervals=0
-        # ),
     ], id="page-content", style=CONTENT_STYLE
 )
 
@@ -499,9 +497,9 @@ def side_stats_avgteconoffincreasedecrease(times_minutes, tec_measurements, temp
     Output("obs-cycle-length", "children"),
     Input('display-length-slider', 'value'),
     Input('refresh-button', 'n_clicks'),
-    # Input('interval-component', 'n_intervals'),
+    Input('diff-switch', 'value'),
 )
-def callback_update_from_db(param_minutes, n):
+def callback_update_from_db(param_minutes, n, diff_switch):
     # extract db
     db_extract = fetch_db(param_minutes)
     db_extract_entries = get_db_subset(db_extract=db_extract, events=["entry",])
@@ -529,14 +527,16 @@ def callback_update_from_db(param_minutes, n):
                               target=db_extract_entries.left_target, limithi=db_extract_entries.left_limithi,
                               limitlo=db_extract_entries.left_limitlo, tec_status=db_extract_entries.left_tec_status,
                               tec_on_cd=db_extract_entries.left_tec_on_cd,
-                              startup_times=db_extract_startups.time)
+                              startup_times=db_extract_startups.time;
+                              display_diff=diff_switch)
 
     # right fig
     right_fig = draw_main_grap(time=db_extract_entries.time, temperature=db_extract_entries.right_temperature, heatsink_temperature=db_extract_entries.right_heatsink_temperature,
                                target=db_extract_entries.right_target, limithi=db_extract_entries.right_limithi,
                                limitlo=db_extract_entries.right_limitlo, tec_status=db_extract_entries.right_tec_status,
                                tec_on_cd=db_extract_entries.right_tec_on_cd,
-                               startup_times=db_extract_startups.time)
+                               startup_times=db_extract_startups.time,
+                               display_diff=diff_switch)
 
     # pct time on
     WATTS_PER_TEC = 85
