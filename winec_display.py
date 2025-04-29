@@ -132,6 +132,78 @@ def draw_main_grap(time, temperature, heatsink_temperature, target, limithi, lim
     if len(time) == 0:
         return None
 
+    if display_diff:
+        temperature = temperature.copy().diff()
+        heatsink_temperature = temperature.copy().diff()
+        time = time.iloc[1:].copy()
+            
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+    
+        # get secondary y axis height
+        min_sec_y, max_sec_y = min(heatsink_temperature) - 1, max(heatsink_temperature) + 1
+    
+        # make tec status values in the heatsink temp range
+        tec_status_filter_on = tec_status == 1
+        tec_status_cp = tec_status.copy()
+        tec_status_cp[tec_status_filter_on] = max_sec_y
+        tec_status_cp[~tec_status_filter_on] = min_sec_y
+    
+        # rework data for tec display
+        # tec_status_time_rw, tec_status_onoff_rw = rework_onoff_with_times(time, tec_status_cp)
+        # tec_cd_time_rw, tec_cd_onoff_rw = rework_onoff_with_times(time, tec_on_cd)
+    
+        # TEC status
+        fig.add_trace(
+        #    go.Scatter(x=tec_status_time_rw, y=tec_status_onoff_rw, name="TEC status", line=dict(width=.5, color='rgb(255,200,200)'),
+        #               fill='tozeroy'),
+            go.Scatter(x=time, y=tec_status_cp, name="TEC status", line=dict(width=.5, color='rgb(255,200,200)'),
+                       fill='tozeroy'),
+            secondary_y=True,
+        )
+        # & tec on cd
+        fig.add_trace(
+        #    go.Scatter(x=tec_cd_time_rw, y=tec_cd_onoff_rw, name="TEC on CD", line=dict(width=.5, color='rgb(255,219,187)'),
+        #               fill='tozeroy'),
+            go.Scatter(x=time, y=tec_on_cd, name="TEC on CD", line=dict(width=.5, color='rgb(255,219,187)'),
+                       fill='tozeroy'),
+            secondary_y=True,
+        )
+    
+        # Temperature measures
+        fig.add_trace(
+            go.Scatter(x=time, y=temperature, name="Measured", line=dict(color='blue')),
+            secondary_y=False,
+        )
+    
+        # Heatsink temperature measures
+        fig.add_trace(
+            go.Scatter(x=time, y=heatsink_temperature, name="Heatsink", line=dict(color='red')),
+            secondary_y=True,
+        )
+    
+        # add startup times
+        for startup_time in startup_times:
+            fig.add_trace(
+                go.Scatter(x=[startup_time, startup_time], y=[min_sec_y, max_sec_y], mode="lines", name="Startup",
+                           line=dict(width=3, color='rgb(0,180,0)')),
+                secondary_y=True,
+            )
+    
+        # Set x-axis title
+        fig.update_xaxes(title_text="Time")
+    
+        # get first y axis range
+        upper_temp_limit = max(temperature) + 1
+        lower_temp_limit = min(temperature) - 1
+    
+        # Set y-axes titles
+        fig.update_yaxes(title_text="Temperature Δ (°C)", range=(lower_temp_limit, upper_temp_limit), secondary_y=False)
+        fig.update_yaxes(title_text="Heatsink temperature Δ (°C)", range=(min_sec_y, max_sec_y), secondary_y=True)
+    
+        fig.update_layout(template="plotly_white", margin=dict(t=50, b=50))
+    
+        return fig
+
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
     # get secondary y axis height
