@@ -171,16 +171,16 @@ def default_params():
             "target_temperature": 12.0,  # target temperature
             "temperature_deviation": 1.0,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
             "tec_cooldown_seconds": 60,  # the tec won't be activated again before waiting for the end of the cooldown delay
-            "left_esp_udp_ip": "192.168.1.2",
-            "left_esp_udp_port": 4210
+            "esp_udp_ip": "192.168.1.2",
+            "esp_udp_port": 4210
         },
         "right": {
             "status": True,
             "target_temperature": 12.0,  # target temperature
             "temperature_deviation": 1.0,  # the algorithm will tolerate values between target - dev and target + dev before switching tec on/off
             "tec_cooldown_seconds": 60,  # the tec won't be activated again before waiting for the end of the cooldown delay
-            "right_esp_udp_ip": "192.168.1.2",
-            "right_esp_udp_port": 4210
+            "esp_udp_ip": "192.168.1.2",
+            "esp_udp_port": 4210
         }
     }
     return params
@@ -502,12 +502,12 @@ if __name__ == "__main__":
                 UDP_MESSAGE += f"{int(round(right_temp*10)):03}1"
             if len(UDP_MESSAGE ) == 8:
                 try:
-                    sock.sendto(bytes(UDP_MESSAGE, "utf-8"), (params["left_esp_udp_ip"], params["left_esp_udp_port"]))
+                    sock.sendto(bytes(UDP_MESSAGE, "utf-8"), (params["left"]["esp_udp_ip"], params["left"]["esp_udp_port"]))
                 except Exception as error:
                     log("error while sending UDP packet to left esp32")
                     log(f"{error=}")
                 try:
-                    sock.sendto(bytes(UDP_MESSAGE, "utf-8"), (params["right_esp_udp_ip"], params["right_esp_udp_port"]))
+                    sock.sendto(bytes(UDP_MESSAGE, "utf-8"), (params["right"]["esp_udp_ip"], params["right"]["esp_udp_port"]))
                 except Exception as error:
                     log("error while sending UDP packet to left esp32")
                     log(f"{error=}")
