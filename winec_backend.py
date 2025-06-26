@@ -129,6 +129,15 @@ def clear_db():
     return False
 
 
+def db_clean(days_old_filter: int):
+    if args.db_platform == "mariadb":
+        dt_max_date_keep = (datetime.now() - timedelta(days=days_old_filter)).strftime('%Y-%m-%d %H:%M:%S')
+        query = f"DELETE FROM temperature_measurements WHERE time < '{dt_max_date_keep}'"
+        return run_db_query_mariadb(query)
+    log(f"Unknown {args.db_platform=}")
+    return False
+
+
 def db_store_startup():
     if args.db_platform == "sqlite3":
         query = f"INSERT INTO temperature_measurements VALUES ('{now()}', 'startup', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, false, false, false)"
@@ -160,8 +169,9 @@ def default_params():
         "bmp180_security_temp_lo": 0,
         "bmp180_security_temp_hi": 40,
         "heatsink_security_temp_lo": 0,
-        "heatsink_security_temp_hi": 60,
+        "heatsink_security_temp_hi": 80,
         "esp_udp_refresh_delay": 5,
+        "auto_remove_older_than_days": 7,
         "left": {
             "status": True,
             "target_temperature": 12.0,  # target temperature
@@ -479,6 +489,9 @@ if __name__ == "__main__":
                 log("error during temp-based tec decision")
                 log(f"{error=}")
                 security_shutdown(left_tec_instance, right_tec_instance)
+
+            # clean old entries
+            db_clean(params["auto_remove_older_than_days"])
 
             # wait until next cycle
             # log(f"going to sleep for {params['loop_delay_seconds']} seconds")
